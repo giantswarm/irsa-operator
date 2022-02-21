@@ -76,24 +76,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		logger.Info("did not found release label on cluster CR, assuming CAPI release")
 	}
 
-	//var irsaService *irsa.Service
-	{
-		//c := encryption.Config{
-		//	AppCatalog:               r.AppCatalog,
-		//	Cluster:                  cluster,
-		//	CtrlClient:               r.Client,
-		//	DefaultKeyRotationPeriod: r.DefaultKeyRotationPeriod,
-		//	RegistryDomain:           r.RegistryDomain,
-		//	Logger:                   logger,
-		//}
-
-		//encryptionService, err = encryption.New(c)
-		//if err != nil {
-		//	logger.Error(err, "failed to create encryption service")
-		//	return ctrl.Result{}, microerror.Mask(err)
-		//}
-	}
-
 	// Fetch AWSClusterRole from the cluster.
 	awsClusterRoleIdentityList := &capa.AWSClusterRoleIdentityList{}
 	err = r.List(ctx, awsClusterRoleIdentityList, client.MatchingLabels{key.ClusterNameLabel: req.Name})
