@@ -93,15 +93,15 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		ARN:        awsClusterRoleIdentityList.Items[0].Spec.RoleArn,
 		Logger:     logger,
-		AWSCluster: cluster.GetName(),
+		AWSCluster: cluster,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
 	// TODO
-	iamService := iam.NewService(clusterScope)
-	s3Service := s3.NewService(clusterScope)
+	_ = iam.NewService(clusterScope)
+	_ = s3.NewService(clusterScope)
 
 	if cluster.DeletionTimestamp != nil {
 

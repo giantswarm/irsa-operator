@@ -76,15 +76,15 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// TODO
 		ARN:        "",
 		Logger:     logger,
-		AWSCluster: cluster.GetName(),
+		AWSCluster: cluster,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
 	// TODO
-	iamService := iam.NewService(clusterScope)
-	s3Service := s3.NewService(clusterScope)
+	_ = iam.NewService(clusterScope)
+	_ = s3.NewService(clusterScope)
 
 	if cluster.DeletionTimestamp != nil {
 
