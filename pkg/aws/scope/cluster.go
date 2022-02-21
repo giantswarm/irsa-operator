@@ -16,9 +16,9 @@ type ClusterScopeParams struct {
 	Session    awsclient.ConfigProvider
 }
 
-// NewManagementClusterScope creates a new Scope from the supplied parameters.
+// NewClusterScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewManagementClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
+func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.ARN == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ARN")
 	}
@@ -39,7 +39,7 @@ func NewManagementClusterScope(params ClusterScopeParams) (*ClusterScope, error)
 
 	return &ClusterScope{
 		assumeRole: params.ARN,
-		AWSCluster: params.AWSCluster,
+		awsCluster: params.AWSCluster,
 		Logger:     params.Logger,
 		session:    session,
 	}, nil
@@ -48,7 +48,7 @@ func NewManagementClusterScope(params ClusterScopeParams) (*ClusterScope, error)
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
 	assumeRole string
-	AWSCluster string
+	awsCluster string
 	logr.Logger
 	session awsclient.ConfigProvider
 }
@@ -58,9 +58,9 @@ func (s *ClusterScope) ARN() string {
 	return s.assumeRole
 }
 
-// InfraCluster returns the AWS infrastructure cluster.
-func (s *ClusterScope) InfraCluster() string {
-	return s.AWSCluster
+// InfraClusterCluster returns the name of the AWS infrastructure cluster.
+func (s *ClusterScope) InfraClusterName() string {
+	return s.awsCluster
 }
 
 // Session returns the AWS SDK session.
