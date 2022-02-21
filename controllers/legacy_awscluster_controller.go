@@ -22,13 +22,18 @@ import (
 
 	"github.com/blang/semver"
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/k8smetadata/pkg/label"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // LegacyClusterReconciler reconciles a Giant Swarm AWSCluster object
@@ -56,8 +61,6 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	// if the cluster CR has a old GS release label we check if the release version is old enought for encryption operator,
-	// otherwise ignore the CR
 	if v, ok := cluster.Labels[label.ReleaseVersion]; ok {
 		_, err := semver.Parse(v)
 		if err != nil {
@@ -68,54 +71,42 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		logger.Info("did not found release label on cluster CR, assuming CAPI release")
 	}
 
-	//var irsaService *irsa.Service
-	{
-		//c := encryption.Config{
-		//	AppCatalog:               r.AppCatalog,
-		//	Cluster:                  cluster,
-		//	CtrlClient:               r.Client,
-		//	DefaultKeyRotationPeriod: r.DefaultKeyRotationPeriod,
-		//	RegistryDomain:           r.RegistryDomain,
-		//	Logger:                   logger,
-		//}
-
-		//encryptionService, err = encryption.New(c)
-		//if err != nil {
-		//	logger.Error(err, "failed to create encryption service")
-		//	return ctrl.Result{}, microerror.Mask(err)
-		//}
+	// Create the cluster scope.
+	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		// TODO
+		ARN:        "",
+		Logger:     logger,
+		AWSCluster: cluster.GetName(),
+	})
+	if err != nil {
+		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
+	// TODO
+	iamService := iam.NewService(clusterScope)
+	s3Service := s3.NewService(clusterScope)
+
 	if cluster.DeletionTimestamp != nil {
-		// clean
-		//err = encryptionService.Delete()
-		//if err != nil {
-		//	logger.Error(err, "failed to clean resources")
-		//	return ctrl.Result{}, microerror.Mask(err)
-		//}
-		// remove finalizer from Cluster
+
+		// TODO
+
 		controllerutil.RemoveFinalizer(cluster, "")
 		err = r.Update(ctx, cluster)
 		if err != nil {
-			logger.Error(err, "failed to remove finalizer on Cluster CR")
+			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 		// resource was cleaned up, we dont need to reconcile again
 		return ctrl.Result{}, nil
 
 	} else {
-		// reconcile
-		//err = encryptionService.Reconcile()
-		//if err != nil {
-		//	logger.Error(err, "failed to reconcile resource")
-		//	return ctrl.Result{}, microerror.Mask(err)
-		//}
 
-		// add finalizer to AWSMachineTemplate
+		// TODO
+
 		controllerutil.AddFinalizer(cluster, "")
 		err = r.Update(ctx, cluster)
 		if err != nil {
-			logger.Error(err, "failed to add finalizer on Cluster CR")
+			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 	}

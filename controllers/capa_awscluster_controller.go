@@ -64,8 +64,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	// if the cluster CR has a old GS release label we check if the release version is old enought for encryption operator,
-	// otherwise ignore the CR
 	if v, ok := cluster.Labels[label.ReleaseVersion]; ok {
 		_, err := semver.Parse(v)
 		if err != nil {
@@ -91,7 +89,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, nil
 	}
 
-	// Create the workload cluster scope.
+	// Create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		ARN:        awsClusterRoleIdentityList.Items[0].Spec.RoleArn,
 		Logger:     logger,
