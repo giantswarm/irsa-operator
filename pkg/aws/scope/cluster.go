@@ -12,6 +12,7 @@ import (
 type ClusterScopeParams struct {
 	ARN        string
 	AWSCluster runtime.Object
+	BucketName string
 	Region     string
 
 	Logger  logr.Logger
@@ -26,6 +27,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 	if params.AWSCluster == nil {
 		return nil, errors.New("failed to generate new scope from nil AWSCluster")
+	}
+	if params.BucketName == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
 	}
 	if params.Region == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string Region")
@@ -42,6 +46,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	return &ClusterScope{
 		assumeRole: params.ARN,
 		awsCluster: params.AWSCluster,
+		bucketName: params.BucketName,
 		region:     params.Region,
 
 		Logger:  params.Logger,
@@ -53,6 +58,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 type ClusterScope struct {
 	assumeRole string
 	awsCluster runtime.Object
+	bucketName string
 	region     string
 
 	logr.Logger
@@ -62,6 +68,11 @@ type ClusterScope struct {
 // ARN returns the AWS SDK assumed role.
 func (s *ClusterScope) ARN() string {
 	return s.assumeRole
+}
+
+// BucketName returns the name of the OIDC S3 bucket.
+func (s *ClusterScope) BucketName() string {
+	return s.bucketName
 }
 
 // InfraClusterCluster returns the AWS infrastructure cluster object.

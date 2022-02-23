@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	baseDirName        = "irsa"
 	keysFilename       = "keys.json"
 	discoveryFilename  = "discovery.json"
 	publicKeyFilename  = "signer.pub"
@@ -22,6 +21,8 @@ const (
 
 func Generate(bucketName, region string) error {
 	log.Printf("generating a key pair")
+	baseDirName := fmt.Sprintf("/tmp/%s", bucketName)
+
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return fmt.Errorf("cannot generate a key pair: %w", err)

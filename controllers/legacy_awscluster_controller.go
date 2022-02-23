@@ -18,20 +18,20 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/blang/semver"
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/irsa-operator/pkg/files"
 	"github.com/giantswarm/irsa-operator/pkg/key"
-	"github.com/giantswarm/k8smetadata/pkg/label"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -63,39 +63,54 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	if v, ok := cluster.Labels[label.ReleaseVersion]; ok {
-		_, err := semver.Parse(v)
-		if err != nil {
-			return ctrl.Result{}, microerror.Mask(err)
-		}
+	credentialName := cluster.Spec.Provider.CredentialSecret.Name
+	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
+	var credentialSecret = &v1.Secret{}
+	if err = r.Get(ctx, types.NamespacedName{Namespace: credentialNamespace, Name: credentialName}, credentialSecret); err != nil {
+		logger.Error(err, "failed to get credential secret")
+		return ctrl.Result{}, microerror.Mask(err)
+	}
 
-	} else {
-		logger.Info("did not found release label on cluster CR, assuming CAPI release")
+	arn, ok := credentialSecret.Data["aws.awsoperator.arn"]
+	if !ok {
+		logger.Error(err, "Unable to extract ARN from secret")
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, cluster.Name))
+
 	}
 
 	// Create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		// TODO
-		ARN:    "",
-		Region: "",
+		ARN:        string(arn),
+		Region:     cluster.Spec.Provider.Region,
+		BucketName: cluster.Name,
 
 		Logger:     logger,
 		AWSCluster: cluster,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, microerror.Mask(err)
 	}
 
-	// TODO
 	iamService := iam.NewService(clusterScope)
 	s3Service := s3.NewService(clusterScope)
 
 	if cluster.DeletionTimestamp != nil {
-
-		// TODO
-		err := s3Service.DeleteFiles("")
-		err = s3Service.DeleteBucket("")
+		err := s3Service.DeleteFiles(clusterScope.BucketName())
+		if err != nil {
+			logger.Error(err, "failed to delete files in S3 bucket")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		err = s3Service.DeleteBucket(clusterScope.BucketName())
+		if err != nil {
+			logger.Error(err, "failed to delete S3 bucket")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
 		err = iamService.DeleteOIDC()
+		if err != nil {
+			logger.Error(err, "failed to delete OIDC")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
 
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
@@ -107,12 +122,26 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 
 	} else {
-
-		// TODO
-		files.Generate(clusterScope.BucketName(), clusterScope.Region())
-		err := s3Service.CreateBucket(clusterScope.BucketName())
+		err := files.Generate(clusterScope.BucketName(), clusterScope.Region())
+		if err != nil {
+			logger.Error(err, "failed to generate files for cluster")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		err = s3Service.CreateBucket(clusterScope.BucketName())
+		if err != nil {
+			logger.Error(err, "failed to create bucket")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
 		err = s3Service.UploadFiles(clusterScope.BucketName())
+		if err != nil {
+			logger.Error(err, "failed to upload files")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
 		err = iamService.CreateOIDC("", clusterScope.Region())
+		if err != nil {
+			logger.Error(err, "failed to create OIDC provider")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
 
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
