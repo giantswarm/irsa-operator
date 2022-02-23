@@ -1,0 +1,17 @@
+domain: giantswarm.io
+layout:
+- go.kubebuilder.io/v3
+projectName: irsa-operator
+repo: github.com/giantswarm/irsa-operator
+resources:
+- controller: true
+  domain: giantswarm.io
+  group: infrastructure.cluster.x-k8s.io
+  kind: AWSCluster
+  version: v1alpha3
+- controller: true
+  domain: giantswarm.io
+  group: infrastructure.giantswarm.io
+  kind: AWCluster
+  version: v1alpha3
+version: "3"

@@ -2,7 +2,6 @@ package iam
 
 import (
 	"bytes"
-	"context"
 	"crypto/md5"
 	"crypto/tls"
 	"fmt"
@@ -14,7 +13,7 @@ import (
 
 const clientID = "sts.amazonaws.com"
 
-func (s *Service) Create(ctx context.Context, identityProviderURL, region string) error {
+func (s *Service) CreateOIDC(identityProviderURL, region string) error {
 
 	s3Endpoint := fmt.Sprintf("s3-%s.amazonaws.com", region)
 
@@ -25,7 +24,7 @@ func (s *Service) Create(ctx context.Context, identityProviderURL, region string
 
 	i := &iam.CreateOpenIDConnectProviderInput{
 		Url:            aws.String(identityProviderURL),
-		ThumbprintList: []*string{aws.String(tp)},
+		ThumbprintList: []*string{aws.String(removeColon(tp))},
 		ClientIDList:   []*string{aws.String(clientID)},
 	}
 
@@ -34,6 +33,27 @@ func (s *Service) Create(ctx context.Context, identityProviderURL, region string
 		return err
 	}
 
+	return nil
+}
+
+//TODO figure out how to select the right OpenIDConnect ARN
+func (s *Service) DeleteOIDC() error {
+
+	i := &iam.DeleteOpenIDConnectProviderInput{}
+
+	_, err := s.Client.DeleteOpenIDConnectProvider(i)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) List() error {
+	i := &iam.ListOpenIDConnectProvidersInput{}
+	_, err := s.Client.ListOpenIDConnectProviders(i)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -58,6 +78,9 @@ func caThumbPrint(ep string, port string) (string, error) {
 		}
 		fmt.Fprintf(&buf, "%02X", f)
 	}
-	return strings.Replace(buf.String(), ":", "", -1), nil
+	return buf.String(), nil
+}
 
+func removeColon(value string) string {
+	return strings.Replace(value, ":", "", -1)
 }

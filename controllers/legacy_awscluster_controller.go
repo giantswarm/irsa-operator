@@ -25,6 +25,8 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/files"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/k8smetadata/pkg/label"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
@@ -74,7 +76,9 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		// TODO
-		ARN:        "",
+		ARN:    "",
+		Region: "",
+
 		Logger:     logger,
 		AWSCluster: cluster,
 	})
@@ -83,14 +87,17 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// TODO
-	_ = iam.NewService(clusterScope)
-	_ = s3.NewService(clusterScope)
+	iamService := iam.NewService(clusterScope)
+	s3Service := s3.NewService(clusterScope)
 
 	if cluster.DeletionTimestamp != nil {
 
 		// TODO
+		err := s3Service.DeleteFiles("")
+		err = s3Service.DeleteBucket("")
+		err = iamService.DeleteOIDC()
 
-		controllerutil.RemoveFinalizer(cluster, "")
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
@@ -102,8 +109,12 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	} else {
 
 		// TODO
+		files.Generate(clusterScope.BucketName(), clusterScope.Region())
+		err := s3Service.CreateBucket(clusterScope.BucketName())
+		err = s3Service.UploadFiles(clusterScope.BucketName())
+		err = iamService.CreateOIDC("", clusterScope.Region())
 
-		controllerutil.AddFinalizer(cluster, "")
+		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")

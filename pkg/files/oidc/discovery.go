@@ -16,11 +16,11 @@ type DiscoveryResponse struct {
 	ClaimsSupported                  []string `json:"claims_supported"`
 }
 
-func WriteDiscovery(w io.Writer, s3BucketName, s3Region string) error {
+func WriteDiscovery(w io.Writer, bucketName, region string) error {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
-		Issuer:                           fmt.Sprintf("https://%s-%s.amazonaws.com", s3BucketName, s3Region),
-		JwksURI:                          fmt.Sprintf("https://%s-%s.amazonaws.com/keys.json", s3BucketName, s3Region),
+		Issuer:                           fmt.Sprintf("https://%s-%s.amazonaws.com", bucketName, region),
+		JwksURI:                          fmt.Sprintf("https://%s-%s.amazonaws.com/keys.json", bucketName, region),
 		AuthorizationEndpoint:            "urn:kubernetes:programmatic_authorization",
 		ResponseTypesSupported:           []string{"id_token"},
 		SubjectTypesSupported:            []string{"public"},

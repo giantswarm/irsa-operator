@@ -1,4 +1,4 @@
-package keys
+package files
 
 import (
 	"crypto/rand"
@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/giantswarm/irsa-operator/pkg/keys/oidc"
-	"github.com/giantswarm/irsa-operator/pkg/keys/pkcs8"
+	"github.com/giantswarm/irsa-operator/pkg/files/oidc"
+	"github.com/giantswarm/irsa-operator/pkg/files/pkcs8"
 )
 
 const (
@@ -18,13 +18,9 @@ const (
 	discoveryFilename  = "discovery.json"
 	publicKeyFilename  = "signer.pub"
 	privateKeyFilename = "signer.key"
-
-	// ONLY for TESTING
-	s3BucketName = "dummy"
-	s3Region     = "eu-west-1"
 )
 
-func Generate() error {
+func Generate(bucketName, region string) error {
 	log.Printf("generating a key pair")
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -51,7 +47,7 @@ func Generate() error {
 		return fmt.Errorf("cannot create %s: %w", discoveryFilename, err)
 	}
 	defer discoveryFile.Close()
-	if err := oidc.WriteDiscovery(discoveryFile, s3BucketName, s3Region); err != nil {
+	if err := oidc.WriteDiscovery(discoveryFile, bucketName, region); err != nil {
 		return fmt.Errorf("cannot write %s: %w", discoveryFilename, err)
 	}
 	log.Printf("created %s", discoveryFilename)

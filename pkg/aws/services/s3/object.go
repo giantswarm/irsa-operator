@@ -1,21 +1,21 @@
 package s3
 
 import (
-	"context"
-	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-func (s *Service) Upload(ctx context.Context, bucketName string, objects []string) {
+var objects = []string{"discovery.json", "keys.json"}
+
+func (s *Service) UploadFiles(bucketName string) error {
 	for _, obj := range objects {
 		file, err := os.Open(obj)
 		if err != nil {
-			fmt.Println("Unable to open file " + obj)
-			return
+			return err
 		}
+		defer file.Close()
 
 		i := s3.PutObjectInput{
 			Bucket: aws.String(bucketName),
@@ -24,8 +24,30 @@ func (s *Service) Upload(ctx context.Context, bucketName string, objects []strin
 		}
 		_, err = s.Client.PutObject(&i)
 		if err != nil {
-			fmt.Println("Unable to upload file " + obj)
-			return
+			return err
 		}
 	}
+	return nil
+}
+
+func (s *Service) DeleteFiles(bucketName string) error {
+
+	deleteObjects := []*s3.ObjectIdentifier{}
+	for _, obj := range objects {
+		deleteObjects = append(deleteObjects, &s3.ObjectIdentifier{
+			Key: aws.String(obj),
+		})
+	}
+	i := s3.DeleteObjectsInput{
+		Bucket: aws.String(bucketName),
+		Delete: &s3.Delete{
+			Objects: deleteObjects,
+		},
+	}
+
+	_, err := s.Client.DeleteObjects(&i)
+	if err != nil {
+		return err
+	}
+	return nil
 }
