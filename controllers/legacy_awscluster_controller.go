@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
@@ -30,6 +31,7 @@ import (
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -63,6 +65,11 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
+	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
+		// resource does not contain IRSA annotation, nothing to do
+		return ctrl.Result{}, nil
+	}
+
 	credentialName := cluster.Spec.Provider.CredentialSecret.Name
 	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
 	var credentialSecret = &v1.Secret{}
@@ -71,19 +78,32 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	arn, ok := credentialSecret.Data["aws.awsoperator.arn"]
+	byte, ok := credentialSecret.Data["aws.awsoperator.arn"]
 	if !ok {
 		logger.Error(err, "Unable to extract ARN from secret")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, cluster.Name))
 
 	}
 
+	// convert secret data byte into string
+	arn := string(byte)
+
+	// extract AccountID from ARN
+	re := regexp.MustCompile(`[-]?\d[\d,]*[\.]?[\d{2}]*`)
+	accountID := re.FindAllString(arn, 1)[0]
+
+	if accountID == "" {
+		logger.Error(err, "Unable to extract Account ID from ARN")
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
+
+	}
+
 	// Create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		// TODO
-		ARN:        string(arn),
+		AccountID:  accountID,
+		ARN:        arn,
 		Region:     cluster.Spec.Provider.Region,
-		BucketName: cluster.Name,
+		BucketName: fmt.Sprintf("%s-%s-oidc-pod-identity", accountID, cluster.Name),
 
 		Logger:     logger,
 		AWSCluster: cluster,
@@ -106,7 +126,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			logger.Error(err, "failed to delete S3 bucket")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		err = iamService.DeleteOIDC()
+		err = iamService.DeleteOIDCProvider(clusterScope.AccountID(), clusterScope.BucketName(), clusterScope.Region())
 		if err != nil {
 			logger.Error(err, "failed to delete OIDC")
 			return ctrl.Result{}, microerror.Mask(err)
@@ -122,10 +142,43 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 
 	} else {
-		err := files.Generate(clusterScope.BucketName(), clusterScope.Region())
-		if err != nil {
-			logger.Error(err, "failed to generate files for cluster")
-			return ctrl.Result{}, microerror.Mask(err)
+		oidcSecretName := fmt.Sprintf("%s-service-account-v2", cluster.Name)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: oidcSecretName}, &v1.Secret{}); err != nil {
+			logger.Error(err, "OIDC Service Account Secret does not exist")
+			//TODO check creation only once by checking secret present
+			err := files.Generate(clusterScope.BucketName(), clusterScope.Region())
+			if err != nil {
+				logger.Error(err, "failed to generate files for cluster")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+
+			privateKey, err := files.ReadFile(clusterScope.BucketName(), "signer.key")
+			if err != nil {
+				logger.Error(err, "failed to read private key file for cluster")
+				return ctrl.Result{}, microerror.Mask(err)
+
+			}
+			publicKey, err := files.ReadFile(clusterScope.BucketName(), "signer.pub")
+			if err != nil {
+				logger.Error(err, "failed to read public key file for cluster")
+				return ctrl.Result{}, microerror.Mask(err)
+
+			}
+
+			oidcSecret := &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      oidcSecretName,
+					Namespace: cluster.Namespace,
+				},
+				Data: map[string][]byte{
+					"service-account-v2.key": privateKey,
+					"service-account-v2.pub": publicKey,
+				},
+				Type: v1.SecretTypeOpaque,
+			}
+			if err := r.Create(ctx, oidcSecret); err != nil {
+
+			}
 		}
 		err = s3Service.CreateBucket(clusterScope.BucketName())
 		if err != nil {
@@ -137,7 +190,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			logger.Error(err, "failed to upload files")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		err = iamService.CreateOIDC("", clusterScope.Region())
+		err = iamService.CreateOIDCProvider(clusterScope.BucketName(), clusterScope.Region())
 		if err != nil {
 			logger.Error(err, "failed to create OIDC provider")
 			return ctrl.Result{}, microerror.Mask(err)
@@ -149,6 +202,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{

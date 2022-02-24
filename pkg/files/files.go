@@ -74,3 +74,13 @@ func Generate(bucketName, region string) error {
 	log.Printf("created %s", privateKeyFilename)
 	return nil
 }
+
+func ReadFile(bucketName, fileName string) ([]byte, error) {
+	path := fmt.Sprintf("/tmp/%s/%s", bucketName, fileName)
+
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return []byte(""), err
+	}
+	return file, nil
+}

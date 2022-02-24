@@ -1,23 +1,22 @@
 package iam
 
 import (
-	"bytes"
-	"crypto/md5"
-	"crypto/tls"
 	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/nhalstead/sprint"
 )
 
 const clientID = "sts.amazonaws.com"
 
-func (s *Service) CreateOIDC(identityProviderURL, region string) error {
+func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 
 	s3Endpoint := fmt.Sprintf("s3-%s.amazonaws.com", region)
+	identityProviderURL := fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
 
-	tp, err := caThumbPrint(s3Endpoint, "443")
+	tp, err := caThumbPrint(s3Endpoint)
 	if err != nil {
 		return err
 	}
@@ -36,10 +35,14 @@ func (s *Service) CreateOIDC(identityProviderURL, region string) error {
 	return nil
 }
 
-//TODO figure out how to select the right OpenIDConnect ARN
-func (s *Service) DeleteOIDC() error {
+//Example OIDC ARN arn:aws:iam::ACCOUNT_ID:oidc-provider/s3-S3_REGION.amazonaws.com/BUCKET_NAME
+func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 
-	i := &iam.DeleteOpenIDConnectProviderInput{}
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+
+	i := &iam.DeleteOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+	}
 
 	_, err := s.Client.DeleteOpenIDConnectProvider(i)
 	if err != nil {
@@ -48,37 +51,9 @@ func (s *Service) DeleteOIDC() error {
 	return nil
 }
 
-func (s *Service) List() error {
-	i := &iam.ListOpenIDConnectProvidersInput{}
-	_, err := s.Client.ListOpenIDConnectProviders(i)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func caThumbPrint(ep string, port string) (string, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%s", ep, port), &tls.Config{
-		ServerName: ep,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	defer conn.Close()
-
-	// Get the ConnectionState struct as that's the one which gives us x509.Certificate struct
-	cert := conn.ConnectionState().PeerCertificates[0]
-	fingerprint := md5.Sum(cert.Raw)
-
-	var buf bytes.Buffer
-	for i, f := range fingerprint {
-		if i > 0 {
-			fmt.Fprintf(&buf, ":")
-		}
-		fmt.Fprintf(&buf, "%02X", f)
-	}
-	return buf.String(), nil
+func caThumbPrint(ep string) (string, error) {
+	fp, _ := sprint.GetFingerprint(ep, false)
+	return fp.SHA1, nil
 }
 
 func removeColon(value string) string {

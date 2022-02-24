@@ -11,6 +11,7 @@ import (
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
 	ARN        string
+	AccountID  string
 	AWSCluster runtime.Object
 	BucketName string
 	Region     string
@@ -24,6 +25,9 @@ type ClusterScopeParams struct {
 func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.ARN == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ARN")
+	}
+	if params.AccountID == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string AccountID")
 	}
 	if params.AWSCluster == nil {
 		return nil, errors.New("failed to generate new scope from nil AWSCluster")
@@ -45,6 +49,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 	return &ClusterScope{
 		assumeRole: params.ARN,
+		accountID:  params.AccountID,
 		awsCluster: params.AWSCluster,
 		bucketName: params.BucketName,
 		region:     params.Region,
@@ -57,6 +62,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
 	assumeRole string
+	accountID  string
 	awsCluster runtime.Object
 	bucketName string
 	region     string
@@ -68,6 +74,11 @@ type ClusterScope struct {
 // ARN returns the AWS SDK assumed role.
 func (s *ClusterScope) ARN() string {
 	return s.assumeRole
+}
+
+// Account ID returns the account ID of the assumed role.
+func (s *ClusterScope) AccountID() string {
+	return s.accountID
 }
 
 // BucketName returns the name of the OIDC S3 bucket.
