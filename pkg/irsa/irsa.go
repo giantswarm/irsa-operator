@@ -1,0 +1,117 @@
+package irsa
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/files"
+	"github.com/giantswarm/microerror"
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type IRSAService struct {
+	Client client.Client
+	Scope  *scope.ClusterScope
+
+	S3  *s3.Service
+	IAM *iam.Service
+}
+
+func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
+	return &IRSAService{
+		Scope:  scope,
+		Client: client,
+
+		IAM: iam.NewService(scope),
+		S3:  s3.NewService(scope),
+	}
+}
+
+func (s *IRSAService) Reconcile(ctx context.Context) error {
+	oidcSecretName := fmt.Sprintf("%s-service-account-v2", s.Scope.ClusterName())
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: oidcSecretName}, &v1.Secret{})
+	if apierrors.IsNotFound(err) {
+		// create new OIDC service account secret
+		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to generate files for cluster")
+			return microerror.Mask(err)
+		}
+
+		privateKey, err := files.ReadFile(s.Scope.BucketName(), "signer.key")
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to read private key file for cluster")
+			return microerror.Mask(err)
+
+		}
+		publicKey, err := files.ReadFile(s.Scope.BucketName(), "signer.pub")
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to read public key file for cluster")
+			return microerror.Mask(err)
+
+		}
+
+		oidcSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      oidcSecretName,
+				Namespace: s.Scope.ClusterNamespace(),
+			},
+			StringData: map[string]string{
+				"service-account-v2.key": string(privateKey),
+				"service-account-v2.pub": string(publicKey),
+			},
+			Type: v1.SecretTypeOpaque,
+		}
+		if err := s.Client.Create(ctx, oidcSecret); err != nil {
+			s.Scope.Logger.Error(err, "failed to create oidc service account secret for cluster")
+			return microerror.Mask(err)
+		}
+	} else if err != nil {
+		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
+		return microerror.Mask(err)
+	} else {
+		// config already exists, check for key rotation
+		err = s.S3.CreateBucket(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to create bucket")
+			return microerror.Mask(err)
+		}
+		err = s.S3.UploadFiles(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to upload files")
+			return microerror.Mask(err)
+		}
+		err = s.IAM.CreateOIDCProvider(s.Scope.BucketName(), s.Scope.Region())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to create OIDC provider")
+			return microerror.Mask(err)
+		}
+	}
+	return nil
+}
+
+func (s *IRSAService) Delete() error {
+	err := s.S3.DeleteFiles(s.Scope.BucketName())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to delete S3 files")
+		return microerror.Mask(err)
+	}
+	err = s.S3.DeleteBucket(s.Scope.BucketName())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to delete S3 bucket")
+		return microerror.Mask(err)
+	}
+	err = s.IAM.DeleteOIDCProvider(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
+		return microerror.Mask(err)
+	}
+	return nil
+}

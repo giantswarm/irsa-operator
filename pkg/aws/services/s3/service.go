@@ -16,6 +16,6 @@ type Service struct {
 func NewService(clusterScope scope.S3Scope) *Service {
 	return &Service{
 		scope:  clusterScope,
-		Client: scope.NewS3Client(clusterScope, clusterScope.ARN(), clusterScope.InfraCluster()),
+		Client: scope.NewS3Client(clusterScope, clusterScope.ARN(), clusterScope.Cluster()),
 	}
 }

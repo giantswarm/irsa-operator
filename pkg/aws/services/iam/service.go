@@ -16,6 +16,6 @@ type Service struct {
 func NewService(clusterScope scope.IAMScope) *Service {
 	return &Service{
 		scope:  clusterScope,
-		Client: scope.NewIAMClient(clusterScope, clusterScope.ARN(), clusterScope.InfraCluster()),
+		Client: scope.NewIAMClient(clusterScope, clusterScope.ARN(), clusterScope.Cluster()),
 	}
 }

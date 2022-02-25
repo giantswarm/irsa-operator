@@ -10,11 +10,13 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	ARN        string
-	AccountID  string
-	AWSCluster runtime.Object
-	BucketName string
-	Region     string
+	ARN              string
+	AccountID        string
+	Cluster          runtime.Object
+	ClusterName      string
+	ClusterNamespace string
+	BucketName       string
+	Region           string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -29,8 +31,14 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.AccountID == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string AccountID")
 	}
-	if params.AWSCluster == nil {
-		return nil, errors.New("failed to generate new scope from nil AWSCluster")
+	if params.Cluster == nil {
+		return nil, errors.New("failed to generate new scope from nil Cluster")
+	}
+	if params.ClusterName == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string ClusterName")
+	}
+	if params.ClusterNamespace == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string ClusterNamespace")
 	}
 	if params.BucketName == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
@@ -50,7 +58,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	return &ClusterScope{
 		assumeRole: params.ARN,
 		accountID:  params.AccountID,
-		awsCluster: params.AWSCluster,
+		cluster:    params.Cluster,
 		bucketName: params.BucketName,
 		region:     params.Region,
 
@@ -61,11 +69,13 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	assumeRole string
-	accountID  string
-	awsCluster runtime.Object
-	bucketName string
-	region     string
+	assumeRole       string
+	accountID        string
+	cluster          runtime.Object
+	clusterName      string
+	clusterNamespace string
+	bucketName       string
+	region           string
 
 	logr.Logger
 	session awsclient.ConfigProvider
@@ -86,11 +96,20 @@ func (s *ClusterScope) BucketName() string {
 	return s.bucketName
 }
 
-// InfraClusterCluster returns the AWS infrastructure cluster object.
-func (s *ClusterScope) InfraCluster() runtime.Object {
-	return s.awsCluster
+// Cluster returns the AWS infrastructure cluster object.
+func (s *ClusterScope) Cluster() runtime.Object {
+	return s.cluster
 }
 
+// ClusterName returns the name of AWS infrastructure cluster object.
+func (s *ClusterScope) ClusterName() string {
+	return s.clusterName
+}
+
+// ClusterNameSpace returns the namespace of AWS infrastructure cluster object.
+func (s *ClusterScope) ClusterNamespace() string {
+	return s.clusterNamespace
+}
 func (s *ClusterScope) Region() string {
 	return s.region
 }

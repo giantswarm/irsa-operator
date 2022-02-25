@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/nhalstead/sprint"
 )
@@ -29,6 +30,14 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 
 	_, err = s.Client.CreateOpenIDConnectProvider(i)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case iam.ErrCodeEntityAlreadyExistsException:
+				return nil
+			}
+		} else {
+			return err
+		}
 		return err
 	}
 

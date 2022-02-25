@@ -18,8 +18,8 @@ type ClusterScoper interface {
 
 	// ARN returns the workload cluster assumed role to operate.
 	ARN() string
-	// InfraCluster returns the AWS infrastructure cluster.
-	InfraCluster() runtime.Object
+	// Cluster returns the AWS infrastructure cluster.
+	Cluster() runtime.Object
 	// Region returns the AWS infrastructure cluster object region.
 	Region() string
 }
