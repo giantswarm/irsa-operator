@@ -67,6 +67,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	// fetch ARN from the cluster to assume role for creating dependencies
 	credentialName := cluster.Spec.Provider.CredentialSecret.Name
 	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
 	var credentialSecret = &v1.Secret{}
@@ -95,7 +96,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	}
 
-	// Create the cluster scope.
+	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,
 		ARN:              arn,
@@ -126,7 +127,6 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		// resource was cleaned up, we dont need to reconcile again
 		return ctrl.Result{}, nil
 
 	} else {
