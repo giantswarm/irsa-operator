@@ -35,8 +35,9 @@ func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
 }
 
 func (s *IRSAService) Reconcile(ctx context.Context) error {
+	oidcSecret := &v1.Secret{}
 	oidcSecretName := fmt.Sprintf("%s-service-account-v2", s.Scope.ClusterName())
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: oidcSecretName}, &v1.Secret{})
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: oidcSecretName}, oidcSecret)
 	if apierrors.IsNotFound(err) {
 		// create new OIDC service account secret
 		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
@@ -45,15 +46,22 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		privateKey, err := files.ReadFile(s.Scope.BucketName(), "signer.key")
+		privateRSAKey, err := files.ReadFile(s.Scope.BucketName(), files.PrivateRSAKeyFilename)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to read private key file for cluster")
 			return microerror.Mask(err)
 
 		}
-		publicKey, err := files.ReadFile(s.Scope.BucketName(), "signer.pub")
+
+		privateSignerKey, err := files.ReadFile(s.Scope.BucketName(), files.PrivateSignerKeyFilename)
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to read public key file for cluster")
+			s.Scope.Logger.Error(err, "failed to read private signer key file for cluster")
+			return microerror.Mask(err)
+
+		}
+		publicSignerKey, err := files.ReadFile(s.Scope.BucketName(), files.PublicSignerKeyFilename)
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to read public signer key file for cluster")
 			return microerror.Mask(err)
 
 		}
@@ -64,20 +72,17 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
-				"service-account-v2.key": string(privateKey),
-				"service-account-v2.pub": string(publicKey),
+				"rsa.key":                string(privateRSAKey),
+				"service-account-v2.key": string(privateSignerKey),
+				"service-account-v2.pub": string(publicSignerKey),
 			},
 			Type: v1.SecretTypeOpaque,
 		}
+
 		if err := s.Client.Create(ctx, oidcSecret); err != nil {
 			s.Scope.Logger.Error(err, "failed to create oidc service account secret for cluster")
 			return microerror.Mask(err)
 		}
-	} else if err != nil {
-		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
-		return microerror.Mask(err)
-	} else {
-		// config already exists, check for key rotation
 		err = s.S3.CreateBucket(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create bucket")
@@ -93,6 +98,14 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to create OIDC provider")
 			return microerror.Mask(err)
 		}
+		err = files.Delete(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to delete temp files")
+			return microerror.Mask(err)
+		}
+	} else if err != nil {
+		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
+		return microerror.Mask(err)
 	}
 	return nil
 }

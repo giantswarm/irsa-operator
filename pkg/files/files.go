@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	keysFilename       = "keys.json"
-	discoveryFilename  = "discovery.json"
-	publicKeyFilename  = "signer.pub"
-	privateKeyFilename = "signer.key"
+	KeysFilename             = "keys.json"
+	DiscoveryFilename        = "discovery.json"
+	PublicSignerKeyFilename  = "signer.pub"
+	PrivateSignerKeyFilename = "signer.key"
+	PrivateRSAKeyFilename    = "rsa.key"
 )
 
 func Generate(bucketName, region string) error {
@@ -31,47 +32,48 @@ func Generate(bucketName, region string) error {
 	if err := os.MkdirAll(baseDirName, 0700); err != nil {
 		return fmt.Errorf("cannot create directory: %w", err)
 	}
-	log.Printf("created directory %s", baseDirName)
 
-	keysFile, err := os.Create(filepath.Join(baseDirName, keysFilename))
+	privateRSAKey, err := os.Create(filepath.Join(baseDirName, PrivateRSAKeyFilename))
 	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", keysFilename, err)
+		return fmt.Errorf("cannot create %s: %w", PrivateRSAKeyFilename, err)
+	}
+	defer privateRSAKey.Close()
+
+	keysFile, err := os.Create(filepath.Join(baseDirName, KeysFilename))
+	if err != nil {
+		return fmt.Errorf("cannot create %s: %w", KeysFilename, err)
 	}
 	defer keysFile.Close()
 	if err := oidc.Write(keysFile, key); err != nil {
-		return fmt.Errorf("cannot write %s: %w", keysFilename, err)
+		return fmt.Errorf("cannot write %s: %w", KeysFilename, err)
 	}
-	log.Printf("created %s", keysFilename)
 
-	discoveryFile, err := os.Create(filepath.Join(baseDirName, discoveryFilename))
+	discoveryFile, err := os.Create(filepath.Join(baseDirName, DiscoveryFilename))
 	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", discoveryFilename, err)
+		return fmt.Errorf("cannot create %s: %w", DiscoveryFilename, err)
 	}
 	defer discoveryFile.Close()
 	if err := oidc.WriteDiscovery(discoveryFile, bucketName, region); err != nil {
-		return fmt.Errorf("cannot write %s: %w", discoveryFilename, err)
+		return fmt.Errorf("cannot write %s: %w", DiscoveryFilename, err)
 	}
-	log.Printf("created %s", discoveryFilename)
 
-	publicKeyFile, err := os.Create(filepath.Join(baseDirName, publicKeyFilename))
+	publicKeyFile, err := os.Create(filepath.Join(baseDirName, PublicSignerKeyFilename))
 	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", publicKeyFilename, err)
+		return fmt.Errorf("cannot create %s: %w", PublicSignerKeyFilename, err)
 	}
 	defer publicKeyFile.Close()
 	if err := pkcs8.WritePublicKey(publicKeyFile, key); err != nil {
-		return fmt.Errorf("cannot write %s: %w", publicKeyFilename, err)
+		return fmt.Errorf("cannot write %s: %w", PublicSignerKeyFilename, err)
 	}
-	log.Printf("created %s", publicKeyFilename)
 
-	privateKeyFile, err := os.Create(filepath.Join(baseDirName, privateKeyFilename))
+	privateKeyFile, err := os.Create(filepath.Join(baseDirName, PrivateSignerKeyFilename))
 	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", privateKeyFilename, err)
+		return fmt.Errorf("cannot create %s: %w", PrivateSignerKeyFilename, err)
 	}
 	defer privateKeyFile.Close()
 	if err := pkcs8.WritePrivateKey(privateKeyFile, key); err != nil {
-		return fmt.Errorf("cannot write %s: %w", privateKeyFilename, err)
+		return fmt.Errorf("cannot write %s: %w", PrivateSignerKeyFilename, err)
 	}
-	log.Printf("created %s", privateKeyFilename)
 	return nil
 }
 
@@ -83,4 +85,13 @@ func ReadFile(bucketName, fileName string) ([]byte, error) {
 		return []byte(""), err
 	}
 	return file, nil
+}
+
+func Delete(bucketName string) error {
+	path := fmt.Sprintf("/tmp/%s", bucketName)
+
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("cannot delete %s: %w", path, err)
+	}
+	return nil
 }
