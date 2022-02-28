@@ -10,13 +10,14 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	ARN              string
 	AccountID        string
+	ARN              string
+	BucketName       string
 	Cluster          runtime.Object
 	ClusterName      string
 	ClusterNamespace string
-	BucketName       string
 	Region           string
+	SecretName       string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -25,11 +26,14 @@ type ClusterScopeParams struct {
 // NewClusterScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
 func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
+	if params.AccountID == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string AccountID")
+	}
 	if params.ARN == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ARN")
 	}
-	if params.AccountID == "" {
-		return nil, errors.New("failed to generate new scope from emtpy string AccountID")
+	if params.BucketName == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
 	}
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
@@ -40,12 +44,13 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.ClusterNamespace == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ClusterNamespace")
 	}
-	if params.BucketName == "" {
-		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
-	}
 	if params.Region == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string Region")
 	}
+	if params.SecretName == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string SecretName")
+	}
+
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
@@ -56,13 +61,14 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 
 	return &ClusterScope{
-		assumeRole:       params.ARN,
 		accountID:        params.AccountID,
+		assumeRole:       params.ARN,
+		bucketName:       params.BucketName,
 		cluster:          params.Cluster,
 		clusterName:      params.ClusterName,
 		clusterNamespace: params.ClusterNamespace,
-		bucketName:       params.BucketName,
 		region:           params.Region,
+		secretName:       params.SecretName,
 
 		Logger:  params.Logger,
 		session: session,
@@ -71,26 +77,27 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	assumeRole       string
 	accountID        string
+	bucketName       string
+	assumeRole       string
 	cluster          runtime.Object
 	clusterName      string
 	clusterNamespace string
-	bucketName       string
 	region           string
+	secretName       string
 
 	logr.Logger
 	session awsclient.ConfigProvider
 }
 
-// ARN returns the AWS SDK assumed role.
-func (s *ClusterScope) ARN() string {
-	return s.assumeRole
-}
-
 // Account ID returns the account ID of the assumed role.
 func (s *ClusterScope) AccountID() string {
 	return s.accountID
+}
+
+// ARN returns the AWS SDK assumed role.
+func (s *ClusterScope) ARN() string {
+	return s.assumeRole
 }
 
 // BucketName returns the name of the OIDC S3 bucket.
@@ -112,8 +119,15 @@ func (s *ClusterScope) ClusterName() string {
 func (s *ClusterScope) ClusterNamespace() string {
 	return s.clusterNamespace
 }
+
+// Region returns the region of the AWS infrastructure cluster object.
 func (s *ClusterScope) Region() string {
 	return s.region
+}
+
+// SecretName returns the name of the OIDC secret from the cluster.
+func (s *ClusterScope) SecretName() string {
+	return s.secretName
 }
 
 // Session returns the AWS SDK session.

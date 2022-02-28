@@ -100,10 +100,11 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,
 		ARN:              arn,
-		Region:           cluster.Spec.Provider.Region,
 		BucketName:       fmt.Sprintf("%s-%s-oidc-pod-identity", accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		Region:           cluster.Spec.Provider.Region,
+		SecretName:       fmt.Sprintf("%s-service-account-v2", cluster.Name),
 
 		Logger:  logger,
 		Cluster: cluster,
@@ -116,7 +117,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	irsaService := irsa.New(clusterScope, r.Client)
 
 	if cluster.DeletionTimestamp != nil {
-		err := irsaService.Delete()
+		err := irsaService.Delete(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}

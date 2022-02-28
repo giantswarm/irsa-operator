@@ -1,0 +1,9 @@
+name: irsa-operator
+version: [[ .Version ]]
+description: "Operator for managing IAM roles for service accounts"
+appVersion: "[[ .AppVersion ]]"
+home: "https://github.com/giantswarm/irsa-operator"
+apiVersion: v1
+annotations:
+  application.giantswarm.io/team: "phoenix"
+  config.giantswarm.io/version: 1.x.x

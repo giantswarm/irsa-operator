@@ -2,7 +2,6 @@ package irsa
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
@@ -36,8 +35,7 @@ func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
 
 func (s *IRSAService) Reconcile(ctx context.Context) error {
 	oidcSecret := &v1.Secret{}
-	oidcSecretName := fmt.Sprintf("%s-service-account-v2", s.Scope.ClusterName())
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: oidcSecretName}, oidcSecret)
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
 		// create new OIDC service account secret
 		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
@@ -61,7 +59,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 		oidcSecret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      oidcSecretName,
+				Name:      s.Scope.SecretName(),
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
@@ -72,7 +70,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		}
 
 		if err := s.Client.Create(ctx, oidcSecret); err != nil {
-			s.Scope.Logger.Error(err, "failed to create oidc service account secret for cluster")
+			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
 			return microerror.Mask(err)
 		}
 		err = s.S3.CreateBucket(s.Scope.BucketName())
@@ -102,7 +100,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (s *IRSAService) Delete() error {
+func (s *IRSAService) Delete(ctx context.Context) error {
 	err := s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
 		s.Scope.Logger.Error(err, "failed to delete S3 files")
@@ -118,5 +116,24 @@ func (s *IRSAService) Delete() error {
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
 		return microerror.Mask(err)
 	}
+
+	oidcSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: s.Scope.ClusterNamespace(),
+			Name:      s.Scope.SecretName(),
+		},
+	}
+	err = s.Client.Delete(ctx, oidcSecret, &client.DeleteOptions{PropagationPolicy: toDeletePropagation(metav1.DeletePropagationForeground)})
+	if apierrors.IsNotFound(err) {
+		// OIDC secret is already deleted
+		return nil
+	} else if err != nil {
+		s.Scope.Logger.Error(err, "failed to delete OIDC service account secret for cluster")
+		return microerror.Mask(err)
+	}
 	return nil
+}
+
+func toDeletePropagation(v metav1.DeletionPropagation) *metav1.DeletionPropagation {
+	return &v
 }
