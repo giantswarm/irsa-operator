@@ -1,0 +1,18 @@
+aws:
+  accessKeyID: accesskey
+  secretAccessKey: secretkey
+
+project:
+  branch: "[[ .Branch ]]"
+  commit: "[[ .SHA ]]"
+image:
+  name: "giantswarm/irsa-operator"
+  tag: "[[ .Version ]]"
+registry:
+  domain: docker.io
+
+pod:
+  user:
+    id: 1000
+  group:
+    id: 1000
