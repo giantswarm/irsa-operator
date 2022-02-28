@@ -56,11 +56,13 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 
 	return &ClusterScope{
-		assumeRole: params.ARN,
-		accountID:  params.AccountID,
-		cluster:    params.Cluster,
-		bucketName: params.BucketName,
-		region:     params.Region,
+		assumeRole:       params.ARN,
+		accountID:        params.AccountID,
+		cluster:          params.Cluster,
+		clusterName:      params.ClusterName,
+		clusterNamespace: params.ClusterNamespace,
+		bucketName:       params.BucketName,
+		region:           params.Region,
 
 		Logger:  params.Logger,
 		session: session,

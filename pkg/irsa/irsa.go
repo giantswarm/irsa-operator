@@ -46,13 +46,6 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		privateRSAKey, err := files.ReadFile(s.Scope.BucketName(), files.PrivateRSAKeyFilename)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to read private key file for cluster")
-			return microerror.Mask(err)
-
-		}
-
 		privateSignerKey, err := files.ReadFile(s.Scope.BucketName(), files.PrivateSignerKeyFilename)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to read private signer key file for cluster")
@@ -72,7 +65,6 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
-				"rsa.key":                string(privateRSAKey),
 				"service-account-v2.key": string(privateSignerKey),
 				"service-account-v2.pub": string(publicSignerKey),
 			},

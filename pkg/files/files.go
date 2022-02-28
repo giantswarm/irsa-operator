@@ -4,12 +4,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/giantswarm/irsa-operator/pkg/files/oidc"
-	"github.com/giantswarm/irsa-operator/pkg/files/pkcs8"
+	pkcs8 "github.com/giantswarm/irsa-operator/pkg/files/pkcs"
 )
 
 const (
@@ -17,11 +16,9 @@ const (
 	DiscoveryFilename        = "discovery.json"
 	PublicSignerKeyFilename  = "signer.pub"
 	PrivateSignerKeyFilename = "signer.key"
-	PrivateRSAKeyFilename    = "rsa.key"
 )
 
 func Generate(bucketName, region string) error {
-	log.Printf("generating a key pair")
 	baseDirName := fmt.Sprintf("/tmp/%s", bucketName)
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -32,12 +29,6 @@ func Generate(bucketName, region string) error {
 	if err := os.MkdirAll(baseDirName, 0700); err != nil {
 		return fmt.Errorf("cannot create directory: %w", err)
 	}
-
-	privateRSAKey, err := os.Create(filepath.Join(baseDirName, PrivateRSAKeyFilename))
-	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", PrivateRSAKeyFilename, err)
-	}
-	defer privateRSAKey.Close()
 
 	keysFile, err := os.Create(filepath.Join(baseDirName, KeysFilename))
 	if err != nil {
