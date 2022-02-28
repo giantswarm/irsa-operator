@@ -23,9 +23,6 @@ import (
 	"time"
 
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
-	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
-	"github.com/giantswarm/irsa-operator/pkg/irsa"
-	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -35,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/irsa"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 // LegacyClusterReconciler reconciles a Giant Swarm AWSCluster object

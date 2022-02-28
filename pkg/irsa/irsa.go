@@ -3,16 +3,17 @@ package irsa
 import (
 	"context"
 
-	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
-	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
-	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
-	"github.com/giantswarm/irsa-operator/pkg/files"
 	"github.com/giantswarm/microerror"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/files"
 )
 
 type IRSAService struct {
