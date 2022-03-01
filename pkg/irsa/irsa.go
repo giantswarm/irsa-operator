@@ -76,25 +76,30 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
 			return microerror.Mask(err)
 		}
+
 		b := backoff.NewMaxRetries(10, 30*time.Second)
+
 		createBucket := func() error { return s.S3.CreateBucket(s.Scope.BucketName()) }
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create bucket")
 			return microerror.Mask(err)
 		}
+
 		uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName()) }
 		err = backoff.Retry(uploadFiles, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to upload files")
 			return microerror.Mask(err)
 		}
+
 		createOIDCProvider := func() error { return s.IAM.CreateOIDCProvider(s.Scope.BucketName(), s.Scope.Region()) }
 		err = backoff.Retry(createOIDCProvider, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create OIDC provider")
 			return microerror.Mask(err)
 		}
+
 		deleteFiles := func() error { return files.Delete(s.Scope.BucketName()) }
 		err = backoff.Retry(deleteFiles, b)
 		if err != nil {

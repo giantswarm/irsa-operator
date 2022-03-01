@@ -11,17 +11,19 @@ func (s *Service) CreateBucket(bucketName string) error {
 		Bucket: aws.String(bucketName),
 	}
 
-	_, err := s.Client.CreateBucket(i)
+	o, err := s.Client.CreateBucket(i)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeBucketAlreadyExists:
+				s.scope.Info("Bucket already exists", "bucket", bucketName)
 				return nil
 			}
 		} else {
 			return err
 		}
 	}
+	s.scope.Info("Bucket created", "bucket", o.String())
 
 	return nil
 }
