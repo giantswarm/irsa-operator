@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/aws/aws-sdk-go v1.43.2
 	github.com/giantswarm/apiextensions/v3 v3.40.0
+	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.0
 	github.com/go-logr/logr v1.2.2
 	github.com/nhalstead/sprint v1.0.6
@@ -29,12 +30,17 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
+	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/giantswarm/micrologger v0.6.0 // indirect
+	github.com/go-kit/log v0.2.0 // indirect
+	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobuffalo/flect v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
