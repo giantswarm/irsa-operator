@@ -79,6 +79,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 		b := backoff.NewMaxRetries(10, 30*time.Second)
 
+		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
 		createBucket := func() error { return s.S3.CreateBucket(s.Scope.BucketName()) }
 		err = backoff.Retry(createBucket, b)
 		if err != nil {

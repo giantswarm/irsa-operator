@@ -11,7 +11,7 @@ func (s *Service) CreateBucket(bucketName string) error {
 		Bucket: aws.String(bucketName),
 	}
 
-	o, err := s.Client.CreateBucket(i)
+	_, err := s.Client.CreateBucket(i)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -23,7 +23,6 @@ func (s *Service) CreateBucket(bucketName string) error {
 			return err
 		}
 	}
-	s.scope.Info("Bucket created", "bucket", o.String())
 
 	return nil
 }
