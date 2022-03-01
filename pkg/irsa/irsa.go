@@ -27,6 +27,7 @@ type IRSAService struct {
 }
 
 func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
+	scope.Session()
 	return &IRSAService{
 		Scope:  scope,
 		Client: client,
