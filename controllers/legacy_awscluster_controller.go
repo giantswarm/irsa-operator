@@ -22,7 +22,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
@@ -115,7 +114,6 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, microerror.Mask(err)
 	}
 
-	spew.Dump(clusterScope.Session())
 	// Create IRSA service.
 	irsaService := irsa.New(clusterScope, r.Client)
 

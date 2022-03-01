@@ -27,7 +27,6 @@ type IRSAService struct {
 }
 
 func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
-	scope.Session()
 	return &IRSAService{
 		Scope:  scope,
 		Client: client,
@@ -78,7 +77,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		b := backoff.NewMaxRetries(10, 30*time.Second)
+		b := backoff.NewMaxRetries(3, 10*time.Second)
 
 		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
 		createBucket := func() error { return s.S3.CreateBucket(s.Scope.BucketName()) }
