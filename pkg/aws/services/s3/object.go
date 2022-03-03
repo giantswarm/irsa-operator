@@ -2,6 +2,7 @@ package s3
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -57,7 +58,15 @@ func (s *Service) DeleteFiles(bucketName string) error {
 
 	_, err := s.Client.DeleteObjects(&i)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case s3.ErrCodeNoSuchBucket:
+				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
+				return nil
+			}
+		}
 		return err
 	}
+
 	return nil
 }
