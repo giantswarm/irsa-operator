@@ -22,6 +22,7 @@ func (s *Service) UploadFiles(bucketName string) error {
 		if obj == "discovery.json" {
 			obj = "/.well-known/openid-configuration"
 		}
+		s.scope.Info(fmt.Sprintf("uploading %s to %s bucket", obj, bucketName))
 
 		i := s3.PutObjectInput{
 			Bucket: aws.String(bucketName),
@@ -62,6 +63,9 @@ func (s *Service) DeleteFiles(bucketName string) error {
 			switch aerr.Code() {
 			case s3.ErrCodeNoSuchBucket:
 				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
+				return nil
+			case s3.ErrCodeNoSuchKey:
+				s.scope.Info("File do not exist, continue with deletion", "bucket", bucketName)
 				return nil
 			}
 		}
