@@ -23,9 +23,8 @@ func (s *Service) CreateBucket(bucketName string) error {
 				s.scope.Info("Bucket already exists", "bucket", bucketName)
 				return nil
 			}
-		} else {
-			return err
 		}
+		return err
 	}
 
 	return nil
@@ -44,9 +43,8 @@ func (s *Service) DeleteBucket(bucketName string) error {
 				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
 				return nil
 			}
-		} else {
-			return err
 		}
+		return err
 	}
 	return nil
 

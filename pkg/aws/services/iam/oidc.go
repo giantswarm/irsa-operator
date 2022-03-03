@@ -35,8 +35,6 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 			case iam.ErrCodeEntityAlreadyExistsException:
 				return nil
 			}
-		} else {
-			return err
 		}
 		return err
 	}
@@ -60,8 +58,6 @@ func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error
 			case iam.ErrCodeNoSuchEntityException:
 				return nil
 			}
-		} else {
-			return err
 		}
 		return err
 	}
