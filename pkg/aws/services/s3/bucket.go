@@ -36,8 +36,17 @@ func (s *Service) DeleteBucket(bucketName string) error {
 		Bucket: aws.String(bucketName),
 	}
 	_, err := s.Client.DeleteBucket(i)
+
 	if err != nil {
-		return err
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case s3.ErrCodeNoSuchBucket:
+				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
+				return nil
+			}
+		} else {
+			return err
+		}
 	}
 	return nil
 
