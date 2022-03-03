@@ -44,7 +44,7 @@ func (s *Service) UploadFiles(bucketName string) error {
 func (s *Service) DeleteFiles(bucketName string) error {
 	s.scope.Info(fmt.Sprintf("Deleting %d files from bucket", len(objects)), "bucket", bucketName)
 
-	deleteObjects := []*s3.ObjectIdentifier{}
+	var deleteObjects []*s3.ObjectIdentifier
 	for _, obj := range objects {
 		if obj == "discovery.json" {
 			obj = ".well-known/openid-configuration"
