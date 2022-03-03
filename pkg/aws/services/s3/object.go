@@ -24,8 +24,6 @@ func (s *Service) UploadFiles(bucketName string) error {
 		if obj == "discovery.json" {
 			obj = "/.well-known/openid-configuration"
 		}
-		s.scope.Info(fmt.Sprintf("uploading %s to %s bucket", obj, bucketName))
-
 		i := s3.PutObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(obj),

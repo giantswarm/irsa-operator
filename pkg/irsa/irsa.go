@@ -123,6 +123,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to delete temp files")
 			return microerror.Mask(err)
 		}
+		s.Scope.Info("All IRSA resources created for te cluster")
+
 	} else if err != nil {
 		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
 		return microerror.Mask(err)

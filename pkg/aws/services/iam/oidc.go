@@ -13,6 +13,7 @@ import (
 const clientID = "sts.amazonaws.com"
 
 func (s *Service) CreateOIDCProvider(bucketName, region string) error {
+	s.scope.Info("Creating OIDC provider")
 
 	s3Endpoint := fmt.Sprintf("s3-%s.amazonaws.com", region)
 	identityProviderURL := fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
@@ -33,17 +34,21 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case iam.ErrCodeEntityAlreadyExistsException:
+				s.scope.Info("OIDC provider already exists, skipping creation")
 				return nil
 			}
 		}
 		return err
 	}
 
+	s.scope.Info("Created OIDC provider")
+
 	return nil
 }
 
 //Example OIDC ARN arn:aws:iam::ACCOUNT_ID:oidc-provider/s3-S3_REGION.amazonaws.com/BUCKET_NAME
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
+	s.scope.Info("Deleting OIDC provider")
 
 	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
 
@@ -56,11 +61,13 @@ func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case iam.ErrCodeNoSuchEntityException:
+				s.scope.Info("OIDC provider no longer exists, skipping deletion")
 				return nil
 			}
 		}
 		return err
 	}
+	s.scope.Info("Deleted OIDC provider")
 
 	return nil
 }
