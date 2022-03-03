@@ -105,7 +105,7 @@ type ClusterScope struct {
 	session awsclient.ConfigProvider
 }
 
-// Account ID returns the account ID of the assumed role.
+// AccountID returns the account ID of the assumed role.
 func (s *ClusterScope) AccountID() string {
 	return s.accountID
 }
