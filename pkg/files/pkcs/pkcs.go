@@ -9,9 +9,13 @@ import (
 )
 
 func WritePublicKey(w io.Writer, key *rsa.PrivateKey) error {
+	pkixPublicKey, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		return fmt.Errorf("cannot marshal the private key to PKIX: %w", err)
+	}
 	if err := pem.Encode(w, &pem.Block{
-		Type:  "RSA PUBLIC KEY",
-		Bytes: x509.MarshalPKCS1PublicKey(&key.PublicKey),
+		Type:  "PUBLIC KEY",
+		Bytes: pkixPublicKey,
 	}); err != nil {
 		return fmt.Errorf("cannot encode the public key: %w", err)
 	}

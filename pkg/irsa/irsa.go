@@ -41,6 +41,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
 		// create new OIDC service account secret
+
+		// TODO: i would probably avoid writing it into file as its unecessery, we can just keep them as variables
 		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to generate files for cluster")
@@ -66,8 +68,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
-				"service-account-v2.key": string(privateSignerKey),
-				"service-account-v2.pub": string(publicSignerKey),
+				"key": string(privateSignerKey),
+				"pub": string(publicSignerKey),
 			},
 			Type: v1.SecretTypeOpaque,
 		}
@@ -77,13 +79,27 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		b := backoff.NewMaxRetries(3, 10*time.Second)
+		b := backoff.NewMaxRetries(10, 15*time.Second)
 
 		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
-		createBucket := func() error { return s.S3.CreateBucket(s.Scope.BucketName()) }
+		createBucket := func() error {
+			err := s.S3.CreateBucket(s.Scope.BucketName())
+			if err != nil {
+				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying ")
+			}
+
+			return err
+		}
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create bucket")
+			return microerror.Mask(err)
+		}
+
+		isBucketReady := func() error { return s.S3.IsBucketReady(s.Scope.BucketName()) }
+		err = backoff.Retry(isBucketReady, b)
+		if err != nil {
+			s.Scope.Logger.Error(err, "bucket not ready")
 			return microerror.Mask(err)
 		}
 
@@ -107,9 +123,13 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to delete temp files")
 			return microerror.Mask(err)
 		}
+		s.Scope.Info("All IRSA resources have been successfully created.")
+
 	} else if err != nil {
 		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
 		return microerror.Mask(err)
+	} else {
+		s.Scope.Logger.Info("Resources are already created")
 	}
 	return nil
 }
@@ -145,6 +165,9 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		s.Scope.Logger.Error(err, "failed to delete OIDC service account secret for cluster")
 		return microerror.Mask(err)
 	}
+
+	s.Scope.Logger.Info("All IRSA resource have been successfully deleted.")
+
 	return nil
 }
 
