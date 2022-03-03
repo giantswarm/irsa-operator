@@ -12,6 +12,8 @@ import (
 var objects = []string{"discovery.json", "keys.json"}
 
 func (s *Service) UploadFiles(bucketName string) error {
+	s.scope.Info(fmt.Sprintf("Uploading %d files to bucket", len(objects)), "bucket", bucketName)
+
 	for _, obj := range objects {
 		file, err := os.Open(fmt.Sprintf("/tmp/%s/%s", bucketName, obj))
 		if err != nil {
@@ -35,10 +37,14 @@ func (s *Service) UploadFiles(bucketName string) error {
 			return err
 		}
 	}
+
+	s.scope.Info(fmt.Sprintf("Uploaded %d files to bucket", len(objects)), "bucket", bucketName)
+
 	return nil
 }
 
 func (s *Service) DeleteFiles(bucketName string) error {
+	s.scope.Info(fmt.Sprintf("Deleting %d files from bucket", len(objects)), "bucket", bucketName)
 
 	deleteObjects := []*s3.ObjectIdentifier{}
 	for _, obj := range objects {
@@ -65,12 +71,12 @@ func (s *Service) DeleteFiles(bucketName string) error {
 				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
 				return nil
 			case s3.ErrCodeNoSuchKey:
-				s.scope.Info("File do not exist, continue with deletion", "bucket", bucketName)
-				return nil
+				s.scope.Info("Files do not exist, continue with deletion", "bucket", bucketName)
 			}
 		}
 		return err
 	}
+	s.scope.Info(fmt.Sprintf("Deleted %d files from bucket", len(objects)), "bucket", bucketName)
 
 	return nil
 }

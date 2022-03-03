@@ -64,6 +64,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
+		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s' , ignoring CR", key.IRSAAnnotation))
 		// resource does not contain IRSA annotation, try later
 		return ctrl.Result{
 			Requeue:      true,

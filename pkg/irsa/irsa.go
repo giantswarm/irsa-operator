@@ -79,7 +79,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		b := backoff.NewMaxRetries(3, 10*time.Second)
+		b := backoff.NewMaxRetries(10, 15*time.Second)
 
 		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
 		createBucket := func() error {
@@ -93,6 +93,13 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create bucket")
+			return microerror.Mask(err)
+		}
+
+		isBucketReady := func() error { return s.S3.IsBucketReady(s.Scope.BucketName()) }
+		err = backoff.Retry(isBucketReady, b)
+		if err != nil {
+			s.Scope.Logger.Error(err, "bucket not ready")
 			return microerror.Mask(err)
 		}
 
@@ -119,6 +126,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	} else if err != nil {
 		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
 		return microerror.Mask(err)
+	} else {
+		s.Scope.Logger.Info("Resources are already created")
 	}
 	return nil
 }
