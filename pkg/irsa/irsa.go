@@ -68,8 +68,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
-				"service-account-v2.key": string(privateSignerKey),
-				"service-account-v2.pub": string(publicSignerKey),
+				"key": string(privateSignerKey),
+				"pub": string(publicSignerKey),
 			},
 			Type: v1.SecretTypeOpaque,
 		}
@@ -82,7 +82,14 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		b := backoff.NewMaxRetries(3, 10*time.Second)
 
 		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
-		createBucket := func() error { return s.S3.CreateBucket(s.Scope.BucketName()) }
+		createBucket := func() error {
+			err := s.S3.CreateBucket(s.Scope.BucketName())
+			if err != nil {
+				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying ")
+			}
+
+			return err
+		}
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to create bucket")

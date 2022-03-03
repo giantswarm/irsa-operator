@@ -1,7 +1,11 @@
 package scope
 
 import (
+	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,6 +63,16 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create aws session")
 	}
+	// DEBUG
+	awsClientConfig := &aws.Config{Credentials: stscreds.NewCredentials(session, params.ARN)}
+
+	stsClient := sts.New(session, awsClientConfig)
+	o, err := stsClient.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get sts client")
+	}
+
+	params.Logger.Info(fmt.Sprintf("assumed role %s", *o.Arn))
 
 	return &ClusterScope{
 		accountID:        params.AccountID,
