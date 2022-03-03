@@ -64,8 +64,11 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-		// resource does not contain IRSA annotation, nothing to do
-		return ctrl.Result{}, nil
+		// resource does not contain IRSA annotation, try later
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
 	}
 
 	// fetch ARN from the cluster to assume role for creating dependencies
@@ -77,15 +80,15 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	byte, ok := credentialSecret.Data["aws.awsoperator.arn"]
+	secretByte, ok := credentialSecret.Data["aws.awsoperator.arn"]
 	if !ok {
 		logger.Error(err, "Unable to extract ARN from secret")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, cluster.Name))
 
 	}
 
-	// convert secret data byte into string
-	arn := string(byte)
+	// convert secret data secretByte into string
+	arn := string(secretByte)
 
 	// extract AccountID from ARN
 	re := regexp.MustCompile(`[-]?\d[\d,]*[\.]?[\d{2}]*`)
@@ -123,6 +126,11 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
+		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+			logger.Error(err, "Cluster does not exist")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
 		if err != nil {
@@ -134,6 +142,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	} else {
 		err := irsaService.Reconcile(ctx)
 		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+			logger.Error(err, "Cluster does not exist")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 

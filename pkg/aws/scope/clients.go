@@ -20,7 +20,7 @@ type AWSClients struct {
 	IAM *iam.IAM
 }
 
-// NewS3Client creates a new Route53 API client for a given session
+// NewS3Client creates a new S3 API client for a given session
 func NewS3Client(session aws.Session, arn string, target runtime.Object) *s3.S3 {
 	S3Client := s3.New(session.Session(), &awsclient.Config{Credentials: stscreds.NewCredentials(session.Session(), arn)})
 	S3Client.Handlers.Build.PushFrontNamed(getUserAgentHandler())
@@ -29,7 +29,7 @@ func NewS3Client(session aws.Session, arn string, target runtime.Object) *s3.S3 
 	return S3Client
 }
 
-// NewIAMClient creates a new Route53 API client for a given session
+// NewIAMClient creates a new IAM API client for a given session
 func NewIAMClient(session aws.Session, arn string, target runtime.Object) *iam.IAM {
 	IAMClient := iam.New(session.Session(), &awsclient.Config{Credentials: stscreds.NewCredentials(session.Session(), arn)})
 	IAMClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())

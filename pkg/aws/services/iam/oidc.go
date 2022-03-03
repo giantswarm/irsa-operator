@@ -54,7 +54,16 @@ func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error
 	}
 
 	_, err := s.Client.DeleteOpenIDConnectProvider(i)
+
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if strings.Contains(aerr.Error(), "NoSuchBucket") {
+				// bucket is gone, continue
+				return nil
+			}
+		} else {
+			return err
+		}
 		return err
 	}
 	return nil

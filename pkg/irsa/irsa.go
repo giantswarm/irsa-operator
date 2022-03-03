@@ -41,6 +41,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
 		// create new OIDC service account secret
+
+		// TODO: i would probably avoid writing it into file as its unecessery, we can just keep them as variables
 		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to generate files for cluster")
