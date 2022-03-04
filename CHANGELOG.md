@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `irsa-operator` to AWS app collection.
+
 ## [0.1.0] - 2022-03-04
-
-
 
 [Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/giantswarm/irsa-operator/releases/tag/v0.1.0
