@@ -27,6 +27,18 @@ workflows:
               only: /^v.*/
       - architect/push-to-docker:
           context: "architect"
+          name: push-irsa-operator-to-docker
+          image: "docker.io/giantswarm/irsa-operator"
+          username_envar: "DOCKER_USERNAME"
+          password_envar: "DOCKER_PASSWORD"
+          requires:
+            - go-build
+          # Needed to trigger job also on git tag.
+          filters:
+            tags:
+              only: /^v.*/
+      - architect/push-to-docker:
+          context: "architect"
           name: push-irsa-operator-to-aliyun
           image: "registry-intl.cn-shanghai.aliyuncs.com/giantswarm/irsa-operator"
           username_envar: "ALIYUN_USERNAME"
@@ -50,3 +62,20 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - architect/push-to-app-collection:
+          name: aws-app-collection
+          context: "architect"
+          app_name: "irsa-operator"
+          app_namespace: "giantswarm"
+          app_collection_repo: "aws-app-collection"
+          requires:
+            - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
+            - push-irsa-operator-to-aliyun
+            - push-irsa-operator-to-app-catalog
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+
