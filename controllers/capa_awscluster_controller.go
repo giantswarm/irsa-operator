@@ -22,9 +22,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
-	"github.com/giantswarm/irsa-operator/pkg/irsa"
-	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
 	"github.com/google/martian/log"
@@ -34,6 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/irsa"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 // CAPAClusterReconciler reconciles a CAPA AWSCluster object
