@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `capa-controller` to reconcile Cluster API Provider AWS CR's.
+
 ## [0.1.1] - 2022-03-09
 
 ### Added
