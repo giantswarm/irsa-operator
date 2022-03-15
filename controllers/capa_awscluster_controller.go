@@ -18,12 +18,22 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"time"
 
+	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/irsa"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 // CAPAClusterReconciler reconciles a CAPA AWSCluster object
@@ -42,8 +52,113 @@ type CAPAClusterReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	//TODO
-	return ctrl.Result{}, nil
+	var err error
+	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
+
+	cluster := &capa.AWSCluster{}
+	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+		logger.Error(err, "Cluster does not exist")
+		return ctrl.Result{}, microerror.Mask(err)
+	}
+
+	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
+		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s' , ignoring CR", key.IRSAAnnotation))
+		// resource does not contain IRSA annotation, try later
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
+	}
+
+	// fetch the AWSClusterRole to assume role for creating dependencies
+	awsClusterRoleIdentityList := &capa.AWSClusterRoleIdentityList{}
+	err = r.List(ctx, awsClusterRoleIdentityList, client.MatchingLabels{key.ClusterNameLabel: req.Name})
+	if err != nil {
+		logger.Error(err, "ClusterRole does not exist")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
+	}
+
+	if len(awsClusterRoleIdentityList.Items) != 1 {
+		logger.Info(fmt.Sprintf("expected 1 AWSClusterRoleIdentity but found '%d'", len(awsClusterRoleIdentityList.Items)))
+		return reconcile.Result{}, nil
+	}
+
+	arn := awsClusterRoleIdentityList.Items[0].Spec.RoleArn
+
+	// extract AccountID from ARN
+	re := regexp.MustCompile(`[-]?\d[\d,]*[\.]?[\d{2}]*`)
+	accountID := re.FindAllString(arn, 1)[0]
+
+	if accountID == "" {
+		logger.Error(err, "Unable to extract Account ID from ARN")
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
+
+	}
+
+	// create the cluster scope.
+	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		AccountID:        accountID,
+		ARN:              arn,
+		BucketName:       key.BucketName(accountID, cluster.Name),
+		ClusterName:      cluster.Name,
+		ClusterNamespace: cluster.Namespace,
+		Region:           cluster.Spec.Region,
+		SecretName:       key.SecretName(cluster.Name),
+
+		Logger:  logger,
+		Cluster: cluster,
+	})
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
+	}
+
+	// Create IRSA service.
+	irsaService := irsa.New(clusterScope, r.Client)
+
+	if cluster.DeletionTimestamp != nil {
+		err := irsaService.Delete(ctx)
+		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+			logger.Error(err, "Cluster does not exist")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
+		err = r.Update(ctx, cluster)
+		if err != nil {
+			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		return ctrl.Result{}, nil
+
+	} else {
+		err := irsaService.Reconcile(ctx)
+		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+			logger.Error(err, "Cluster does not exist")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		controllerutil.AddFinalizer(cluster, key.FinalizerName)
+		err = r.Update(ctx, cluster)
+		if err != nil {
+			logger.Error(err, "failed to add finalizer on AWSCluster CR")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+	}
+
+	return ctrl.Result{
+		Requeue:      true,
+		RequeueAfter: time.Minute * 5,
+	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
