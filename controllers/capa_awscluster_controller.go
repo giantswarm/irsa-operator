@@ -24,7 +24,6 @@ import (
 
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
-	"github.com/google/martian/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,11 +75,14 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	err = r.List(ctx, awsClusterRoleIdentityList, client.MatchingLabels{key.ClusterNameLabel: req.Name})
 	if err != nil {
 		logger.Error(err, "ClusterRole does not exist")
-		return reconcile.Result{}, err
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
 	}
 
 	if len(awsClusterRoleIdentityList.Items) != 1 {
-		log.Info(fmt.Sprintf("expected 1 AWSClusterRoleIdentity but found '%d'", len(awsClusterRoleIdentityList.Items)))
+		logger.Info(fmt.Sprintf("expected 1 AWSClusterRoleIdentity but found '%d'", len(awsClusterRoleIdentityList.Items)))
 		return reconcile.Result{}, nil
 	}
 

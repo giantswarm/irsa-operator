@@ -8,7 +8,6 @@ require (
 	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.0
 	github.com/go-logr/logr v1.2.2
-	github.com/google/martian v2.1.0+incompatible
 	github.com/nhalstead/sprint v1.0.6
 	github.com/pkg/errors v0.9.1
 	k8s.io/api v0.23.2
