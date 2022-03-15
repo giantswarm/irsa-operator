@@ -102,11 +102,11 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,
 		ARN:              arn,
-		BucketName:       fmt.Sprintf("%s-g8s-%s-oidc-pod-identity", accountID, cluster.Name),
+		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
 		Region:           cluster.Spec.Region,
-		SecretName:       fmt.Sprintf("%s-service-account-v2", cluster.Name),
+		SecretName:       key.SecretName(cluster.Name),
 
 		Logger:  logger,
 		Cluster: cluster,
