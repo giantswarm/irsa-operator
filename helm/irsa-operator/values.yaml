@@ -17,3 +17,11 @@ pod:
     id: 1000
   group:
     id: 1000
+
+resources:
+  limits:
+    cpu: 250m
+    memory: 250Mi
+  requests:
+    cpu: 100m
+    memory: 250Mi
