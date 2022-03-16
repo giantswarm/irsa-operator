@@ -71,7 +71,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Logger.Info("Created secret signer keys in k8s")
 
 		key = pkey
-	} else {
+	} else if err == nil {
 		// if secret already exists, parse the private key
 		privBytes := oidcSecret.Data["key"]
 		block, _ := pem.Decode(privBytes)
@@ -80,6 +80,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 		key = pkey.(*rsa.PrivateKey)
+	} else {
+		return microerror.Mask(err)
 	}
 
 	b := backoff.NewMaxRetries(10, 15*time.Second)
