@@ -46,7 +46,8 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 	return nil
 }
 
-//Example OIDC ARN arn:aws:iam::ACCOUNT_ID:oidc-provider/s3-S3_REGION.amazonaws.com/BUCKET_NAME
+// Example OIDC ARN arn:aws:iam::ACCOUNT_ID:oidc-provider/s3-S3_REGION.amazonaws.com/BUCKET_NAME
+
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 	s.scope.Info("Deleting OIDC provider")
 

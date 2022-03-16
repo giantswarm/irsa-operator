@@ -1,9 +1,9 @@
 package oidc
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 )
 
 type DiscoveryResponse struct {
@@ -16,7 +16,7 @@ type DiscoveryResponse struct {
 	ClaimsSupported                  []string `json:"claims_supported"`
 }
 
-func WriteDiscovery(w io.Writer, bucketName, region string) error {
+func GenerateDiscoveryFile(bucketName, region string) (*bytes.Reader, error) {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
 		Issuer:                           fmt.Sprintf("https://%s-%s.amazonaws.com", bucketName, region),
@@ -27,8 +27,10 @@ func WriteDiscovery(w io.Writer, bucketName, region string) error {
 		IDTokenSigningAlgValuesSupported: []string{"RS256"},
 		ClaimsSupported:                  []string{"sub", "iss"},
 	}
-	if err := json.NewEncoder(w).Encode(&v); err != nil {
-		return fmt.Errorf("cannot encode to JSON: %w", err)
+	b := &bytes.Buffer{}
+
+	if err := json.NewEncoder(b).Encode(&v); err != nil {
+		return nil, fmt.Errorf("cannot encode to JSON: %w", err)
 	}
-	return nil
+	return bytes.NewReader(b.Bytes()), nil
 }
