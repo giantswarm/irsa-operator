@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bytes"
 	"crypto/rsa"
 	"fmt"
 
@@ -14,12 +15,36 @@ import (
 
 var objects = []string{".well-known/openid-configuration", "keys.json"}
 
-func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
-	s.scope.Info(fmt.Sprintf("Uploading files to bucket"), "bucket", bucketName)
+type FileObject struct {
+	FileName string
+	Content  *bytes.Reader
+}
 
-	// discovery file '/.well-known/openid-configuration'
-	{
-		fileName := "/.well-known/openid-configuration"
+func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
+	discoveryFile, err := oidc2.GenerateDiscoveryFile(bucketName, s.scope.Region())
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	keysFile, err := oidc2.GenerateKeysFile(key)
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	files := []FileObject{
+		{
+			FileName: objects[0],
+			Content:  discoveryFile,
+		},
+		{
+			FileName: objects[1],
+			Content:  keysFile,
+		},
+	}
+
+	s.scope.Info("Uploading files to bucket", "bucket", bucketName)
+	for _, i := range files {
+		fileName := i.FileName
 		i0 := &s3.HeadObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(fileName),
@@ -27,16 +52,11 @@ func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
 
 		_, err := s.Client.HeadObject(i0)
 		if err != nil {
-			discoveryFile, err := oidc2.GenerateDiscoveryFile(bucketName, s.scope.Region())
-			if err != nil {
-				return microerror.Mask(err)
-			}
-
 			i := s3.PutObjectInput{
 				Bucket: aws.String(bucketName),
 				Key:    aws.String(fileName),
 				ACL:    aws.String("public-read"),
-				Body:   discoveryFile,
+				Body:   i.Content,
 			}
 			_, err = s.Client.PutObject(&i)
 			if err != nil {
@@ -48,39 +68,8 @@ func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
 			s.scope.Info(fmt.Sprintf("File '%s', already exist, skipping the update", fileName), "bucket", bucketName)
 		}
 	}
-	// keys file 'keys.json'
-	{
-		fileName := "keys.json"
-		i0 := &s3.HeadObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(fileName),
-		}
-		_, err := s.Client.HeadObject(i0)
-		if err != nil {
-			keysFile, err := oidc2.GenerateKeysFile(key)
-			if err != nil {
-				return microerror.Mask(err)
-			}
 
-			i := s3.PutObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("keys.json"),
-				ACL:    aws.String("public-read"),
-				Body:   keysFile,
-			}
-			_, err = s.Client.PutObject(&i)
-			if err != nil {
-				return microerror.Mask(err)
-			}
-			s.scope.Info(fmt.Sprintf("Uploaded '%s'", fileName), "bucket", bucketName)
-
-		} else {
-			s.scope.Info(fmt.Sprintf("File '%s', already exist, skipping the update", fileName), "bucket", bucketName)
-
-		}
-	}
-	s.scope.Info(fmt.Sprintf("Uploaded files to bucket"), "bucket", bucketName)
-
+	s.scope.Info("Uploaded files to bucket", "bucket", bucketName)
 	return nil
 }
 

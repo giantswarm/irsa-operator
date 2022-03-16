@@ -34,12 +34,7 @@ spec:
         command:
         - /manager
         resources:
-          requests:
-            cpu: 100m
-            memory: 20Mi
-          limits:
-            cpu: 100m
-            memory: 30Mi
+          {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
         - mountPath: /home/.aws
           name: credentials
