@@ -121,12 +121,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Info("Finished reconciling OIDC provider resource.")
 	}
 
-	// else if err != nil {
-	//	s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
-	//	return microerror.Mask(err)
-	//} else {
 	s.Scope.Logger.Info("Reconciled all resources.")
-	//}
 	return nil
 }
 
