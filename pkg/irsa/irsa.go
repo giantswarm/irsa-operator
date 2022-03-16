@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -19,6 +18,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 )
 
 type IRSAService struct {
