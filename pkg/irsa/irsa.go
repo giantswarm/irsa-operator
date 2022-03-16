@@ -42,6 +42,7 @@ func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
 func (s *IRSAService) Reconcile(ctx context.Context) error {
 	var key *rsa.PrivateKey
 
+	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
 	oidcSecret := &v1.Secret{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
