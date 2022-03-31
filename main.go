@@ -17,7 +17,7 @@ import (
 	"flag"
 	"os"
 
-	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v3/pkg/apis/infrastructure/v1alpha3"
+	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/giantswarm/irsa-operator/controllers"
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -40,7 +40,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = capa.AddToScheme(scheme)
 	_ = infrastructurev1alpha3.AddToScheme(scheme)
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
@@ -89,7 +89,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
