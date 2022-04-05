@@ -15,7 +15,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
@@ -48,19 +47,18 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var installation string
+	var installation = os.Getenv("INSTALLATION")
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&installation, "installation", "", "The name the installation.")
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
-	fmt.Println(installation)
 
 	ctrl.SetLogger(klogr.New())
 
