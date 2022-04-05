@@ -1,10 +1,16 @@
 package s3
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
+
+// S3BucketEncryptionAlgorithm is used to determine which algorithm use S3 to encrypt buckets.
+const S3BucketEncryptionAlgorithm = "AES256"
 
 func (s *Service) CreateBucket(bucketName string) error {
 	i := &s3.CreateBucketInput{
@@ -27,6 +33,57 @@ func (s *Service) CreateBucket(bucketName string) error {
 		return err
 	}
 	s.scope.Info("Created bucket", "bucket", bucketName)
+
+	return nil
+}
+
+func (s *Service) CreateTags(bucketName string) error {
+	i := &s3.PutBucketTaggingInput{
+		Bucket: aws.String(bucketName),
+		Tagging: &s3.Tagging{
+			TagSet: []*s3.Tag{
+				{
+					Key:   aws.String(key.S3TagOrganization),
+					Value: aws.String(s.scope.ClusterNamespace()),
+				},
+				{
+					Key:   aws.String(key.S3TagCluster),
+					Value: aws.String(s.scope.ClusterName()),
+				},
+				{
+					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
+					Value: aws.String("owned"),
+				},
+			},
+		},
+	}
+
+	_, err := s.Client.PutBucketTagging(i)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) EncryptBucket(bucketName string) error {
+	i := &s3.PutBucketEncryptionInput{
+		Bucket: aws.String(bucketName),
+		ServerSideEncryptionConfiguration: &s3.ServerSideEncryptionConfiguration{
+			Rules: []*s3.ServerSideEncryptionRule{
+				{
+					ApplyServerSideEncryptionByDefault: &s3.ServerSideEncryptionByDefault{
+						SSEAlgorithm: aws.String(S3BucketEncryptionAlgorithm),
+					},
+				},
+			},
+		},
+	}
+
+	_, err := s.Client.PutBucketEncryption(i)
+	if err != nil {
+		return err
+	}
+	s.scope.Info("Encrypted bucket", "bucket", bucketName)
 
 	return nil
 }

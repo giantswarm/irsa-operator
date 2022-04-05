@@ -3,6 +3,9 @@ aws:
   secretAccessKey: secretkey
   region: region
 
+installation:
+  name: name
+
 project:
   branch: "[[ .Branch ]]"
   commit: "[[ .SHA ]]"

@@ -104,9 +104,17 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 		s.Scope.Logger.Info("Created S3 bucket", s.Scope.BucketName())
+
 	} else {
 		s.Scope.Logger.Info("S3 bucket already exists, skipping creation", s.Scope.BucketName())
 	}
+
+	err = s.S3.EncryptBucket(s.Scope.BucketName())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to encrypt bucket")
+		return microerror.Mask(err)
+	}
+	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 
 	uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName(), key) }
 	err = backoff.Retry(uploadFiles, b)

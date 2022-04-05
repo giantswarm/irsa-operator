@@ -9,6 +9,11 @@ const (
 	FinalizerName        = "irsa-operator.finalizers.giantswarm.io"
 	//TODO move it into k8smetadata
 	IRSAAnnotation = "alpha.aws.giantswarm.io/iam-roles-for-service-accounts"
+
+	S3TagCloudProvider = "kubernetes.io/cluster/%s"
+	S3TagCluster       = "giantswarm.io/cluster"
+	S3TagInstallation  = "giantswarm.io/installation"
+	S3TagOrganization  = "giantswarm.io/organization"
 )
 
 func BucketName(accountID, clusterName string) string {

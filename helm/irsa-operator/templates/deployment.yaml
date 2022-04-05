@@ -31,8 +31,11 @@ spec:
         env:
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /home/.aws/credentials
-        command:
-        - /manager
+        - name: INSTALLATION
+          value: {{ .Values.installation.name }}
+        args:
+        - ./manager
+        - --installation=$(INSTALLATION)
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:

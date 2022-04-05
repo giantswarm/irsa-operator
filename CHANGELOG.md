@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add tags to OIDC S3 bucket.
+- Enable encryption for OIDC S3 bucket.
+
 ## [0.2.0] - 2022-03-31
 
 ### Changed

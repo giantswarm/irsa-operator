@@ -20,6 +20,10 @@ type ClusterScoper interface {
 	ARN() string
 	// Cluster returns the AWS infrastructure cluster.
 	Cluster() runtime.Object
+	// Cluster returns the AWS infrastructure cluster name.
+	ClusterName() string
+	// Cluster returns the AWS infrastructure cluster namespace.
+	ClusterNamespace() string
 	// Region returns the AWS infrastructure cluster object region.
 	Region() string
 }
