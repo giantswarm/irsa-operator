@@ -2,6 +2,9 @@ package irsa
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -15,7 +18,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
-	"github.com/giantswarm/irsa-operator/pkg/files"
+	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 )
 
 type IRSAService struct {
@@ -37,29 +40,16 @@ func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
 }
 
 func (s *IRSAService) Reconcile(ctx context.Context) error {
+	var key *rsa.PrivateKey
+
+	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
 	oidcSecret := &v1.Secret{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
 		// create new OIDC service account secret
-
-		// TODO: i would probably avoid writing it into file as its unecessery, we can just keep them as variables
-		err := files.Generate(s.Scope.BucketName(), s.Scope.Region())
+		privateSignerKey, publicSignerKey, pkey, err := pkcs.GenerateKeys()
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to generate files for cluster")
 			return microerror.Mask(err)
-		}
-
-		privateSignerKey, err := files.ReadFile(s.Scope.BucketName(), files.PrivateSignerKeyFilename)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to read private signer key file for cluster")
-			return microerror.Mask(err)
-
-		}
-		publicSignerKey, err := files.ReadFile(s.Scope.BucketName(), files.PublicSignerKeyFilename)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to read public signer key file for cluster")
-			return microerror.Mask(err)
-
 		}
 
 		oidcSecret := &v1.Secret{
@@ -68,8 +58,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 				Namespace: s.Scope.ClusterNamespace(),
 			},
 			StringData: map[string]string{
-				"key": string(privateSignerKey),
-				"pub": string(publicSignerKey),
+				"key": privateSignerKey,
+				"pub": publicSignerKey,
 			},
 			Type: v1.SecretTypeOpaque,
 		}
@@ -78,9 +68,27 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
 			return microerror.Mask(err)
 		}
+		s.Scope.Logger.Info("Created secret signer keys in k8s")
 
-		b := backoff.NewMaxRetries(10, 15*time.Second)
+		key = pkey
+	} else if err == nil {
+		// if secret already exists, parse the private key
+		privBytes := oidcSecret.Data["key"]
+		block, _ := pem.Decode(privBytes)
+		pkey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+		key = pkey.(*rsa.PrivateKey)
+	} else {
+		return microerror.Mask(err)
+	}
 
+	b := backoff.NewMaxRetries(10, 15*time.Second)
+
+	err = s.S3.IsBucketReady(s.Scope.BucketName())
+	// check if bucket exists
+	if err != nil {
 		s.Scope.Logger.Info("Creating S3 bucket", s.Scope.BucketName())
 		createBucket := func() error {
 			err := s.S3.CreateBucket(s.Scope.BucketName())
@@ -95,42 +103,28 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to create bucket")
 			return microerror.Mask(err)
 		}
+		s.Scope.Logger.Info("Created S3 bucket", s.Scope.BucketName())
+	} else {
+		s.Scope.Logger.Info("S3 bucket already exists, skipping creation", s.Scope.BucketName())
+	}
 
-		isBucketReady := func() error { return s.S3.IsBucketReady(s.Scope.BucketName()) }
-		err = backoff.Retry(isBucketReady, b)
-		if err != nil {
-			s.Scope.Logger.Error(err, "bucket not ready")
-			return microerror.Mask(err)
-		}
+	uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName(), key) }
+	err = backoff.Retry(uploadFiles, b)
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to upload files")
+		return microerror.Mask(err)
+	}
 
-		uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName()) }
-		err = backoff.Retry(uploadFiles, b)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to upload files")
-			return microerror.Mask(err)
-		}
-
-		createOIDCProvider := func() error { return s.IAM.CreateOIDCProvider(s.Scope.BucketName(), s.Scope.Region()) }
-		err = backoff.Retry(createOIDCProvider, b)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to create OIDC provider")
-			return microerror.Mask(err)
-		}
-
-		deleteFiles := func() error { return files.Delete(s.Scope.BucketName()) }
-		err = backoff.Retry(deleteFiles, b)
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to delete temp files")
-			return microerror.Mask(err)
-		}
-		s.Scope.Info("All IRSA resources have been successfully created.")
-
-	} else if err != nil {
-		s.Scope.Logger.Error(err, "failed to get OIDC service account secret for cluster")
+	createOIDCProvider := func() error { return s.IAM.CreateOIDCProvider(s.Scope.BucketName(), s.Scope.Region()) }
+	err = backoff.Retry(createOIDCProvider, b)
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to create OIDC provider")
 		return microerror.Mask(err)
 	} else {
-		s.Scope.Logger.Info("Resources are already created")
+		s.Scope.Info("Finished reconciling OIDC provider resource.")
 	}
+
+	s.Scope.Logger.Info("Reconciled all resources.")
 	return nil
 }
 

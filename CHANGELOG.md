@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove writing resources to files.
+- Refactor code so each part can be retried if one of the steps fails.
 - Increase request and limits for the deployment pod.
 - Upgrade `apiextensions` to `v6.0.0`.
 

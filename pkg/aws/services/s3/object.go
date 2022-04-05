@@ -1,43 +1,75 @@
 package s3
 
 import (
+	"bytes"
+	"crypto/rsa"
 	"fmt"
-	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/giantswarm/microerror"
+
+	oidc2 "github.com/giantswarm/irsa-operator/pkg/oidc"
 )
 
-var objects = []string{"discovery.json", "keys.json"}
+var objects = []string{".well-known/openid-configuration", "keys.json"}
 
-func (s *Service) UploadFiles(bucketName string) error {
-	s.scope.Info(fmt.Sprintf("Uploading %d files to bucket", len(objects)), "bucket", bucketName)
+type FileObject struct {
+	FileName string
+	Content  *bytes.Reader
+}
 
-	for _, obj := range objects {
-		file, err := os.Open(fmt.Sprintf("/tmp/%s/%s", bucketName, obj))
-		if err != nil {
-			return err
-		}
-		defer file.Close()
+func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
+	discoveryFile, err := oidc2.GenerateDiscoveryFile(bucketName, s.scope.Region())
+	if err != nil {
+		return microerror.Mask(err)
+	}
 
-		if obj == "discovery.json" {
-			obj = "/.well-known/openid-configuration"
-		}
-		i := s3.PutObjectInput{
+	keysFile, err := oidc2.GenerateKeysFile(key)
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	files := []FileObject{
+		{
+			FileName: objects[0],
+			Content:  discoveryFile,
+		},
+		{
+			FileName: objects[1],
+			Content:  keysFile,
+		},
+	}
+
+	s.scope.Info("Uploading files to bucket", "bucket", bucketName)
+	for _, i := range files {
+		fileName := i.FileName
+		i0 := &s3.HeadObjectInput{
 			Bucket: aws.String(bucketName),
-			Key:    aws.String(obj),
-			ACL:    aws.String("public-read"),
-			Body:   file,
+			Key:    aws.String(fileName),
 		}
-		_, err = s.Client.PutObject(&i)
+
+		_, err := s.Client.HeadObject(i0)
 		if err != nil {
-			return err
+			i := s3.PutObjectInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(fileName),
+				ACL:    aws.String("public-read"),
+				Body:   i.Content,
+			}
+			_, err = s.Client.PutObject(&i)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+			s.scope.Info(fmt.Sprintf("Uploaded '%s'", fileName), "bucket", bucketName)
+
+		} else {
+			s.scope.Info(fmt.Sprintf("File '%s', already exist, skipping the update", fileName), "bucket", bucketName)
 		}
 	}
 
-	s.scope.Info(fmt.Sprintf("Uploaded %d files to bucket", len(objects)), "bucket", bucketName)
-
+	s.scope.Info("Uploaded files to bucket", "bucket", bucketName)
 	return nil
 }
 
@@ -46,9 +78,6 @@ func (s *Service) DeleteFiles(bucketName string) error {
 
 	var deleteObjects []*s3.ObjectIdentifier
 	for _, obj := range objects {
-		if obj == "discovery.json" {
-			obj = ".well-known/openid-configuration"
-		}
 		deleteObjects = append(deleteObjects, &s3.ObjectIdentifier{
 			Key: aws.String(obj),
 		})

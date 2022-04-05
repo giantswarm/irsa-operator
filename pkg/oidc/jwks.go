@@ -1,13 +1,13 @@
 package oidc
 
 import (
+	"bytes"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 )
 
@@ -30,7 +30,7 @@ func digestOfKey(key *rsa.PrivateKey) string {
 	return base64.RawURLEncoding.EncodeToString(s.Sum(nil))
 }
 
-func Write(w io.Writer, key *rsa.PrivateKey) error {
+func GenerateKeysFile(key *rsa.PrivateKey) (*bytes.Reader, error) {
 	keyE := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes())
 	keyN := base64.RawURLEncoding.EncodeToString(key.N.Bytes())
 	v := KeyResponse{
@@ -53,8 +53,10 @@ func Write(w io.Writer, key *rsa.PrivateKey) error {
 			},
 		},
 	}
-	if err := json.NewEncoder(w).Encode(&v); err != nil {
-		return fmt.Errorf("cannot encode to JSON: %w", err)
+	b := &bytes.Buffer{}
+
+	if err := json.NewEncoder(b).Encode(&v); err != nil {
+		return nil, fmt.Errorf("cannot encode to JSON: %w", err)
 	}
-	return nil
+	return bytes.NewReader(b.Bytes()), nil
 }
