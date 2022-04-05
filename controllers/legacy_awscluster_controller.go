@@ -43,6 +43,8 @@ type LegacyClusterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+
+	Installation string
 }
 
 // +kubebuilder:rbac:groups=infrastructure.giantswarm.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
@@ -108,6 +110,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		Installation:     r.Installation,
 		Region:           cluster.Spec.Provider.Region,
 		SecretName:       key.SecretName(cluster.Name),
 

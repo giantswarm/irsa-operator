@@ -55,6 +55,10 @@ func (s *Service) CreateTags(bucketName string) error {
 					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
 					Value: aws.String("owned"),
 				},
+				{
+					Key:   aws.String(key.S3TagInstallation),
+					Value: aws.String(s.scope.Installation()),
+				},
 			},
 		},
 	}
@@ -63,6 +67,8 @@ func (s *Service) CreateTags(bucketName string) error {
 	if err != nil {
 		return err
 	}
+	s.scope.Info("Created tags", "bucket", bucketName)
+
 	return nil
 }
 

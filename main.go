@@ -84,9 +84,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.CAPAClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("capa-controller"),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Log:          ctrl.Log.WithName("capa-controller"),
+		Scheme:       mgr.GetScheme(),
+		Installation: installation,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)

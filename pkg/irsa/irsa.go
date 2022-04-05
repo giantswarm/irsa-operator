@@ -116,6 +116,13 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 
+	err = s.S3.CreateTags(s.Scope.BucketName())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to create tags")
+		return microerror.Mask(err)
+	}
+
+	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 	uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName(), key) }
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {

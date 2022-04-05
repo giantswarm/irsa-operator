@@ -21,6 +21,7 @@ type ClusterScopeParams struct {
 	Cluster          runtime.Object
 	ClusterName      string
 	ClusterNamespace string
+	Installation     string
 	Region           string
 	SecretName       string
 
@@ -48,6 +49,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 	if params.ClusterNamespace == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ClusterNamespace")
+	}
+	if params.Installation == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string Installation")
 	}
 	if params.Region == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string Region")
@@ -82,6 +86,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		cluster:          params.Cluster,
 		clusterName:      params.ClusterName,
 		clusterNamespace: params.ClusterNamespace,
+		installation:     params.Installation,
 		region:           params.Region,
 		secretName:       params.SecretName,
 
@@ -98,6 +103,7 @@ type ClusterScope struct {
 	cluster          runtime.Object
 	clusterName      string
 	clusterNamespace string
+	installation     string
 	region           string
 	secretName       string
 
@@ -133,6 +139,11 @@ func (s *ClusterScope) ClusterName() string {
 // ClusterNameSpace returns the namespace of AWS infrastructure cluster object.
 func (s *ClusterScope) ClusterNamespace() string {
 	return s.clusterNamespace
+}
+
+// Region returns the name of the installation where the cluster object is located.
+func (s *ClusterScope) Installation() string {
+	return s.installation
 }
 
 // Region returns the region of the AWS infrastructure cluster object.

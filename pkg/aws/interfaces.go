@@ -24,6 +24,8 @@ type ClusterScoper interface {
 	ClusterName() string
 	// Cluster returns the AWS infrastructure cluster namespace.
 	ClusterNamespace() string
+	// Installation returns the installation name.
+	Installation() string
 	// Region returns the AWS infrastructure cluster object region.
 	Region() string
 }
