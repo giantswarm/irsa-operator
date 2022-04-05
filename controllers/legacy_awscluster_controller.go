@@ -103,6 +103,8 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	}
 
+	logger.Info("Installation", "Installation", r.Installation)
+
 	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,

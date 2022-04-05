@@ -15,6 +15,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
@@ -59,6 +60,7 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+	fmt.Println(installation)
 
 	ctrl.SetLogger(klogr.New())
 
@@ -76,9 +78,10 @@ func main() {
 	}
 
 	if err = (&controllers.LegacyClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("legacy-controller"),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Log:          ctrl.Log.WithName("legacy-controller"),
+		Scheme:       mgr.GetScheme(),
+		Installation: installation,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
