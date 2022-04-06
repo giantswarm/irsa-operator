@@ -31,8 +31,6 @@ spec:
         env:
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /home/.aws/credentials
-        - name: INSTALLATION
-          value: {{ .Values.installation.name }}
         args:
         - "--installation={{ .Values.installation.name }}"
         resources:
