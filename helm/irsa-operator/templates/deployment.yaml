@@ -34,7 +34,7 @@ spec:
         - name: INSTALLATION
           value: {{ .Values.installation.name }}
         args:
-        - "--installation {{ .Values.installation.name }}"
+        - "--installation={{ .Values.installation.name }}"
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
