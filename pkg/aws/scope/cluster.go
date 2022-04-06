@@ -141,7 +141,7 @@ func (s *ClusterScope) ClusterNamespace() string {
 	return s.clusterNamespace
 }
 
-// Region returns the name of the installation where the cluster object is located.
+// Installation returns the name of the installation where the cluster object is located.
 func (s *ClusterScope) Installation() string {
 	return s.installation
 }
