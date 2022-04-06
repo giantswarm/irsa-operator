@@ -33,8 +33,8 @@ spec:
           value: /home/.aws/credentials
         - name: INSTALLATION
           value: {{ .Values.installation.name }}
-        command:
-        - /manager
+        args:
+        - "--installation {{ .Values.installation.name }}"
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
