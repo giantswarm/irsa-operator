@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 // S3BucketEncryptionAlgorithm is used to determine which algorithm use S3 to encrypt buckets.
@@ -52,7 +53,7 @@ func (s *Service) CreateTags(bucketName string) error {
 					Value: aws.String(s.scope.ClusterName()),
 				},
 				{
-					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
+					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, util.RemoveOrg(s.scope.ClusterName()))),
 					Value: aws.String("owned"),
 				},
 				{
