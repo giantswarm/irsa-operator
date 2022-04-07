@@ -41,6 +41,8 @@ type CAPAClusterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+
+	Installation string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
@@ -105,6 +107,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		Installation:     r.Installation,
 		Region:           cluster.Spec.Region,
 		SecretName:       key.SecretName(cluster.Name),
 
