@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"strings"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -15,9 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 )
 
@@ -116,7 +120,18 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 
-	err = s.S3.CreateTags(s.Scope.BucketName())
+	// Fetch custom tags for Cluster CR
+	cluster := &capi.Cluster{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
+	if apierrors.IsNotFound(err) {
+		// fallthrough
+	} else if err != nil {
+		return microerror.Mask(err)
+	}
+
+	customerTags := getCustomerTags(cluster)
+
+	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
@@ -182,4 +197,15 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 
 func toDeletePropagation(v metav1.DeletionPropagation) *metav1.DeletionPropagation {
 	return &v
+}
+
+func getCustomerTags(cluster *capi.Cluster) map[string]string {
+	customerTags := make(map[string]string)
+
+	for k, v := range cluster.Labels {
+		if strings.HasPrefix(k, key.CustomerTagLabel) {
+			customerTags[k] = v
+		}
+	}
+	return customerTags
 }
