@@ -15,7 +15,7 @@ const (
 	S3TagInstallation  = "giantswarm.io/installation"
 	S3TagOrganization  = "giantswarm.io/organization"
 
-	CustomerTagLabel = "tag.provider.giantswarm.io"
+	CustomerTagLabel = "tag.provider.giantswarm.io/"
 )
 
 func BucketName(accountID, clusterName string) string {

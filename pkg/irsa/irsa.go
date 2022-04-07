@@ -154,6 +154,12 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Info("Finished reconciling OIDC provider resource.")
 	}
 
+	err = s.IAM.CreateOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to create tags")
+		return microerror.Mask(err)
+	}
+
 	s.Scope.Logger.Info("Reconciled all resources.")
 	return nil
 }
@@ -204,7 +210,7 @@ func getCustomerTags(cluster *capi.Cluster) map[string]string {
 
 	for k, v := range cluster.Labels {
 		if strings.HasPrefix(k, key.CustomerTagLabel) {
-			customerTags[k] = v
+			customerTags[strings.Replace(k, key.CustomerTagLabel, "", 1)] = v
 		}
 	}
 	return customerTags

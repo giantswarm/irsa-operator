@@ -53,7 +53,7 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 					Value: aws.String(s.scope.ClusterName()),
 				},
 				{
-					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, util.RemoveOrg(s.scope.ClusterName()))),
+					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, util.RemoveOrg(s.scope.ClusterNamespace()))),
 					Value: aws.String("owned"),
 				},
 				{
