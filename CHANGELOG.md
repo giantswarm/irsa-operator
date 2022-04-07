@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 - Add giantswarm tags to OIDC S3 bucket.
 - Enable encryption for OIDC S3 bucket.
 
