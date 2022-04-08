@@ -160,11 +160,11 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
-	s.Scope.Logger.Info("Created tags for OIDC", s.Scope.BucketName())
+	s.Scope.Logger.Info("Created tags for OIDC provider")
 
-	oidcTags, err := s.IAM.ListOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
-		s.Scope.Logger.Error(err, "failed to list OIDC tags")
+		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
 		return microerror.Mask(err)
 	}
 
@@ -174,7 +174,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to remove tags")
 			return microerror.Mask(err)
 		}
-		s.Scope.Logger.Info("Removed tags for OIDC", s.Scope.BucketName())
+		s.Scope.Logger.Info("Removed tags for OIDC provider")
 	}
 
 	s.Scope.Logger.Info("Reconciled all resources.")

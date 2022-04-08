@@ -85,7 +85,7 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 	return nil
 }
 
-func (s *Service) ListOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
+func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
 	s.scope.Info("Listing OIDC tags")
 
 	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
@@ -100,7 +100,9 @@ func (s *Service) ListOIDCTags(accountID, bucketName, region string) (map[string
 
 	oidcTags := make(map[string]string)
 	for _, tag := range o.Tags {
-		oidcTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		if strings.Contains(aws.StringValue(tag.Key), key.CustomerTagLabel) {
+			oidcTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		}
 	}
 	return oidcTags, nil
 }
