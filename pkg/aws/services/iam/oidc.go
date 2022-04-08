@@ -64,7 +64,7 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 				Value: aws.String(s.scope.ClusterName()),
 			},
 			{
-				Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterNamespace())),
+				Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
 				Value: aws.String("owned"),
 			},
 			{
@@ -98,9 +98,10 @@ func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (ma
 		return nil, err
 	}
 
+	ignoreKeyTags := []string{fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName()), key.S3TagCluster, key.S3TagInstallation, key.S3TagOrganization}
 	oidcTags := make(map[string]string)
 	for _, tag := range o.Tags {
-		if strings.Contains(aws.StringValue(tag.Key), key.CustomerTagLabel) {
+		if !util.StringInSlice(aws.StringValue(tag.Key), ignoreKeyTags) {
 			oidcTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
 		}
 	}

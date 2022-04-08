@@ -23,3 +23,12 @@ func MapsDiff(m1, m2 map[string]string) []string {
 	}
 	return diff
 }
+
+func StringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
