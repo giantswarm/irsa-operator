@@ -23,6 +23,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type IRSAService struct {
@@ -160,6 +161,21 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return microerror.Mask(err)
 	}
 	s.Scope.Logger.Info("Created tags for OIDC", s.Scope.BucketName())
+
+	oidcTags, err := s.IAM.ListOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to list OIDC tags")
+		return microerror.Mask(err)
+	}
+
+	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
+		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
+		if err := s.IAM.RemoveOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
+			s.Scope.Logger.Error(err, "failed to remove tags")
+			return microerror.Mask(err)
+		}
+		s.Scope.Logger.Info("Removed tags for OIDC", s.Scope.BucketName())
+	}
 
 	s.Scope.Logger.Info("Reconciled all resources.")
 	return nil

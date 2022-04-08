@@ -85,11 +85,50 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 	return nil
 }
 
+func (s *Service) ListOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
+	s.scope.Info("Listing OIDC tags")
+
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	i := &iam.ListOpenIDConnectProviderTagsInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+	}
+
+	o, err := s.Client.ListOpenIDConnectProviderTags(i)
+	if err != nil {
+		return nil, err
+	}
+
+	oidcTags := make(map[string]string)
+	for _, tag := range o.Tags {
+		oidcTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+	}
+	return oidcTags, nil
+}
+
+func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
+	s.scope.Info("Removing OIDC tags")
+
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	i := &iam.UntagOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+		TagKeys:                  []*string{},
+	}
+
+	for _, t := range tagKeys {
+		i.TagKeys = append(i.TagKeys, aws.String(t))
+	}
+
+	_, err := s.Client.UntagOpenIDConnectProvider(i)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 	s.scope.Info("Deleting OIDC provider")
 
 	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
-
 	i := &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}
