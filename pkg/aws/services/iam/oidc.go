@@ -8,6 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/nhalstead/sprint"
+
+	"github.com/giantswarm/irsa-operator/pkg/key"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 const clientID = "sts.amazonaws.com"
@@ -40,19 +43,95 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 		}
 		return err
 	}
-
 	s.scope.Info("Created OIDC provider")
 
 	return nil
 }
 
-// Example OIDC ARN arn:aws:iam::ACCOUNT_ID:oidc-provider/s3-S3_REGION.amazonaws.com/BUCKET_NAME
+func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerTags map[string]string) error {
+	s.scope.Info("Creating tags on OIDC provider")
+
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	i := &iam.TagOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+		Tags: []*iam.Tag{
+			{
+				Key:   aws.String(key.S3TagOrganization),
+				Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
+			},
+			{
+				Key:   aws.String(key.S3TagCluster),
+				Value: aws.String(s.scope.ClusterName()),
+			},
+			{
+				Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
+				Value: aws.String("owned"),
+			},
+			{
+				Key:   aws.String(key.S3TagInstallation),
+				Value: aws.String(s.scope.Installation()),
+			},
+		},
+	}
+
+	for k, v := range customerTags {
+		i.Tags = append(i.Tags, &iam.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+
+	_, err := s.Client.TagOpenIDConnectProvider(i)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
+	s.scope.Info("Listing OIDC tags")
+
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	i := &iam.ListOpenIDConnectProviderTagsInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+	}
+
+	o, err := s.Client.ListOpenIDConnectProviderTags(i)
+	if err != nil {
+		return nil, err
+	}
+
+	ignoreKeyTags := []string{fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName()), key.S3TagCluster, key.S3TagInstallation, key.S3TagOrganization}
+	oidcTags := make(map[string]string)
+	for _, tag := range o.Tags {
+		if !util.StringInSlice(aws.StringValue(tag.Key), ignoreKeyTags) {
+			oidcTags[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		}
+	}
+	return oidcTags, nil
+}
+
+func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
+	s.scope.Info("Removing OIDC tags")
+
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	i := &iam.UntagOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+		TagKeys:                  []*string{},
+	}
+
+	for _, t := range tagKeys {
+		i.TagKeys = append(i.TagKeys, aws.String(t))
+	}
+
+	_, err := s.Client.UntagOpenIDConnectProvider(i)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 	s.scope.Info("Deleting OIDC provider")
 
 	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
-
 	i := &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"strings"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -15,10 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type IRSAService struct {
@@ -116,13 +121,24 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 
-	err = s.S3.CreateTags(s.Scope.BucketName())
+	// Fetch custom tags from Cluster CR
+	cluster := &capi.Cluster{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
+	if apierrors.IsNotFound(err) {
+		// fallthrough
+	} else if err != nil {
+		return microerror.Mask(err)
+	}
+
+	customerTags := getCustomerTags(cluster)
+
+	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
+	s.Scope.Logger.Info("Created tags for S3 bucket", s.Scope.BucketName())
 
-	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 	uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName(), key) }
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -137,6 +153,28 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return microerror.Mask(err)
 	} else {
 		s.Scope.Info("Finished reconciling OIDC provider resource.")
+	}
+
+	err = s.IAM.CreateOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to create tags")
+		return microerror.Mask(err)
+	}
+	s.Scope.Logger.Info("Created tags for OIDC provider")
+
+	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
+		return microerror.Mask(err)
+	}
+
+	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
+		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
+		if err := s.IAM.RemoveOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
+			s.Scope.Logger.Error(err, "failed to remove tags")
+			return microerror.Mask(err)
+		}
+		s.Scope.Logger.Info("Removed tags for OIDC provider")
 	}
 
 	s.Scope.Logger.Info("Reconciled all resources.")
@@ -182,4 +220,15 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 
 func toDeletePropagation(v metav1.DeletionPropagation) *metav1.DeletionPropagation {
 	return &v
+}
+
+func getCustomerTags(cluster *capi.Cluster) map[string]string {
+	customerTags := make(map[string]string)
+
+	for k, v := range cluster.Labels {
+		if strings.HasPrefix(k, key.CustomerTagLabel) {
+			customerTags[strings.Replace(k, key.CustomerTagLabel, "", 1)] = v
+		}
+	}
+	return customerTags
 }
