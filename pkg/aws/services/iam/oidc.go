@@ -7,9 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/nhalstead/sprint"
+
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
-	"github.com/nhalstead/sprint"
 )
 
 const clientID = "sts.amazonaws.com"
