@@ -120,7 +120,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 
-	// Fetch custom tags for Cluster CR
+	// Fetch custom tags from Cluster CR
 	cluster := &capi.Cluster{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
 	if apierrors.IsNotFound(err) {
@@ -136,8 +136,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
+	s.Scope.Logger.Info("Created tags for S3 bucket", s.Scope.BucketName())
 
-	s.Scope.Logger.Info("Encrypted S3 bucket", s.Scope.BucketName())
 	uploadFiles := func() error { return s.S3.UploadFiles(s.Scope.BucketName(), key) }
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -159,6 +159,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
+	s.Scope.Logger.Info("Created tags for OIDC", s.Scope.BucketName())
 
 	s.Scope.Logger.Info("Reconciled all resources.")
 	return nil

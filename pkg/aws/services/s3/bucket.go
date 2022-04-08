@@ -46,14 +46,14 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 			TagSet: []*s3.Tag{
 				{
 					Key:   aws.String(key.S3TagOrganization),
-					Value: aws.String(s.scope.ClusterNamespace()),
+					Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
 				},
 				{
 					Key:   aws.String(key.S3TagCluster),
 					Value: aws.String(s.scope.ClusterName()),
 				},
 				{
-					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, util.RemoveOrg(s.scope.ClusterNamespace()))),
+					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
 					Value: aws.String("owned"),
 				},
 				{
@@ -72,7 +72,6 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 	if err != nil {
 		return err
 	}
-	s.scope.Info("Created tags", "bucket", bucketName)
 
 	return nil
 }
@@ -95,7 +94,6 @@ func (s *Service) EncryptBucket(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Info("Encrypted bucket", "bucket", bucketName)
 
 	return nil
 }
