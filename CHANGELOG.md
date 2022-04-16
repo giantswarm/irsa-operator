@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Calculation for `kid`.
+
 ## [0.3.1] - 2022-04-15
 
 ## [0.3.0] - 2022-04-13
