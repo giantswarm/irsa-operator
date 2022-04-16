@@ -25,13 +25,9 @@ func generatePublicKey(w io.Writer, key *rsa.PrivateKey) error {
 }
 
 func generatePrivateKey(w io.Writer, key *rsa.PrivateKey) error {
-	pkcs8PrivateKey, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return fmt.Errorf("cannot marshal the private key to PKCS8: %w", err)
-	}
 	if err := pem.Encode(w, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: pkcs8PrivateKey,
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	}); err != nil {
 		return fmt.Errorf("cannot encode the private key: %w", err)
 	}
