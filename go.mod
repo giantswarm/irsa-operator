@@ -10,6 +10,7 @@ require (
 	github.com/go-logr/logr v1.2.2
 	github.com/nhalstead/sprint v1.0.6
 	github.com/pkg/errors v0.9.1
+	gopkg.in/square/go-jose.v2 v2.5.1
 	k8s.io/api v0.23.2
 	k8s.io/apimachinery v0.23.2
 	k8s.io/client-go v0.23.2
