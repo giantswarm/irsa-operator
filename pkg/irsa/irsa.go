@@ -80,11 +80,10 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		// if secret already exists, parse the private key
 		privBytes := oidcSecret.Data["key"]
 		block, _ := pem.Decode(privBytes)
-		pkey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
 			return microerror.Mask(err)
 		}
-		key = pkey.(*rsa.PrivateKey)
 	} else {
 		return microerror.Mask(err)
 	}

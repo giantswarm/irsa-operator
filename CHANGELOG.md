@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix `ParsePKCS1PrivateKey`.
+
 ## [0.3.2] - 2022-04-18
 
 ### Fixed
