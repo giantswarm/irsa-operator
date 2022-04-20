@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- ARN prefix for region.
+
 ## [0.3.5] - 2022-04-20
 
 ### Fixed

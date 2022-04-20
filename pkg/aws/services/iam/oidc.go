@@ -49,7 +49,7 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerTags map[string]string) error {
 	s.scope.Info("Creating tags on OIDC provider")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3.%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
+	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.TagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		Tags: []*iam.Tag{
@@ -86,7 +86,7 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
 	s.scope.Info("Listing OIDC tags")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3.%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
+	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.ListOpenIDConnectProviderTagsInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}
@@ -109,7 +109,7 @@ func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (ma
 func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
 	s.scope.Info("Removing OIDC tags")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3.%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
+	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.UntagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		TagKeys:                  []*string{},
@@ -129,7 +129,7 @@ func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys [
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 	s.scope.Info("Deleting OIDC provider")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3.%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
+	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}

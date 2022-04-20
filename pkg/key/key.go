@@ -36,3 +36,11 @@ func AWSEndpoint(region string) string {
 	}
 	return awsEndpoint
 }
+
+func ARNPrefix(region string) string {
+	arnPrefix := "aws"
+	if strings.HasPrefix(region, "cn-") {
+		arnPrefix = "aws-cn"
+	}
+	return arnPrefix
+}
