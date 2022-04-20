@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Identity URL for OIDC.
+
 ## [0.3.4] - 2022-04-20
 
 ### Fixed
