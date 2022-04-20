@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 type DiscoveryResponse struct {
@@ -19,8 +21,8 @@ type DiscoveryResponse struct {
 func GenerateDiscoveryFile(bucketName, region string) (*bytes.Reader, error) {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
-		Issuer:                           fmt.Sprintf("https://%s.s3.%s.amazonaws.com", bucketName, region),
-		JwksURI:                          fmt.Sprintf("https://%s.s3.%s.amazonaws.com/keys.json", bucketName, region),
+		Issuer:                           fmt.Sprintf("https://%s.s3.%s.%s", bucketName, region, key.AWSEndpoint(region)),
+		JwksURI:                          fmt.Sprintf("https://%s.s3.%s.%s/keys.json", bucketName, region, key.AWSEndpoint(region)),
 		AuthorizationEndpoint:            "urn:kubernetes:programmatic_authorization",
 		ResponseTypesSupported:           []string{"id_token"},
 		SubjectTypesSupported:            []string{"public"},

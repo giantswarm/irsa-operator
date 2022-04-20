@@ -1,6 +1,9 @@
 package key
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	ClusterNameLabel     = "cluster.x-k8s.io/cluster-name"
@@ -24,4 +27,12 @@ func BucketName(accountID, clusterName string) string {
 
 func SecretName(clusterName string) string {
 	return fmt.Sprintf("%s-service-account-v2", clusterName)
+}
+
+func AWSEndpoint(region string) string {
+	awsEndpoint := "amazonaws.com"
+	if strings.HasPrefix(region, "cn-") {
+		awsEndpoint = "amazonaws.com.cn"
+	}
+	return awsEndpoint
 }

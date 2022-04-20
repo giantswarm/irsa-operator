@@ -13,12 +13,10 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-const clientID = "sts.amazonaws.com"
-
 func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 	s.scope.Info("Creating OIDC provider")
 
-	s3Endpoint := fmt.Sprintf("s3-%s.amazonaws.com", region)
+	s3Endpoint := fmt.Sprintf("s3-%s.%s", region, key.AWSEndpoint(region))
 	identityProviderURL := fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
 
 	tp, err := caThumbPrint(s3Endpoint)
@@ -29,7 +27,7 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 	i := &iam.CreateOpenIDConnectProviderInput{
 		Url:            aws.String(identityProviderURL),
 		ThumbprintList: []*string{aws.String(removeColon(tp))},
-		ClientIDList:   []*string{aws.String(clientID)},
+		ClientIDList:   []*string{aws.String(fmt.Sprintf("sts.%s", key.AWSEndpoint(region)))},
 	}
 
 	_, err = s.Client.CreateOpenIDConnectProvider(i)
@@ -51,7 +49,7 @@ func (s *Service) CreateOIDCProvider(bucketName, region string) error {
 func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerTags map[string]string) error {
 	s.scope.Info("Creating tags on OIDC provider")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.TagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		Tags: []*iam.Tag{
@@ -88,7 +86,7 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
 	s.scope.Info("Listing OIDC tags")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.ListOpenIDConnectProviderTagsInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}
@@ -111,7 +109,7 @@ func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (ma
 func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
 	s.scope.Info("Removing OIDC tags")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.UntagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		TagKeys:                  []*string{},
@@ -131,7 +129,7 @@ func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys [
 func (s *Service) DeleteOIDCProvider(accountID, bucketName, region string) error {
 	s.scope.Info("Deleting OIDC provider")
 
-	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.amazonaws.com/%s", accountID, region, bucketName)
+	providerArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/s3-%s.%s/%s", accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}
