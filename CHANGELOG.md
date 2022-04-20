@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- AWS Region Endpoint for IRSA.
+
 ## [0.3.3] - 2022-04-19
 
 ### Fixed
