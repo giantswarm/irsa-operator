@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	counterLabels = []string{labelInstallation, labelAccountID, labelCluster, labelNamespace}
+	labels = []string{labelInstallation, labelAccountID, labelCluster, labelNamespace}
 
 	Errors = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -25,7 +25,7 @@ var (
 			Name:      "errors",
 			Help:      "Number of errors",
 		},
-		counterLabels,
+		labels,
 	)
 )
 
