@@ -22,6 +22,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/irsa-operator/pkg/key"
+	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
@@ -70,6 +71,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		}
 
 		if err := s.Client.Create(ctx, oidcSecret); err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
 			return microerror.Mask(err)
 		}
@@ -104,6 +106,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		}
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create bucket")
 			return microerror.Mask(err)
 		}
@@ -115,6 +118,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 	err = s.S3.EncryptBucket(s.Scope.BucketName())
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to encrypt bucket")
 		return microerror.Mask(err)
 	}
@@ -133,6 +137,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
@@ -148,6 +153,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	createOIDCProvider := func() error { return s.IAM.CreateOIDCProvider(s.Scope.BucketName(), s.Scope.Region()) }
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create OIDC provider")
 		return microerror.Mask(err)
 	} else {
@@ -156,6 +162,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 	err = s.IAM.CreateOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return microerror.Mask(err)
 	}
@@ -163,6 +170,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
 		return microerror.Mask(err)
 	}
@@ -170,12 +178,14 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
 		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
 		if err := s.IAM.RemoveOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to remove tags")
 			return microerror.Mask(err)
 		}
 		s.Scope.Logger.Info("Removed tags for OIDC provider")
 	}
 
+	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
 	s.Scope.Logger.Info("Reconciled all resources.")
 	return nil
 }
@@ -183,16 +193,19 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 func (s *IRSAService) Delete(ctx context.Context) error {
 	err := s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete S3 files")
 		return microerror.Mask(err)
 	}
 	err = s.S3.DeleteBucket(s.Scope.BucketName())
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete S3 bucket")
 		return microerror.Mask(err)
 	}
 	err = s.IAM.DeleteOIDCProvider(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
 		return microerror.Mask(err)
 	}
@@ -208,10 +221,12 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		// OIDC secret is already deleted
 		return nil
 	} else if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC service account secret for cluster")
 		return microerror.Mask(err)
 	}
 
+	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
 	s.Scope.Logger.Info("All IRSA resource have been successfully deleted.")
 
 	return nil

@@ -10,6 +10,7 @@ require (
 	github.com/go-logr/logr v1.2.2
 	github.com/nhalstead/sprint v1.0.6
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.11.0
 	gopkg.in/square/go-jose.v2 v2.5.1
 	k8s.io/api v0.23.2
 	k8s.io/apimachinery v0.23.2
@@ -58,7 +59,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.16.0 // indirect
-	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
