@@ -142,6 +142,8 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
+		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
+
 		return ctrl.Result{}, nil
 
 	} else {
@@ -160,6 +162,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
+		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 	}
 
 	return ctrl.Result{
