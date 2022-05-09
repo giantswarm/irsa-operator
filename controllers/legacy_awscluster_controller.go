@@ -183,7 +183,7 @@ func (r *LegacyClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err, "failed setting up with a controller manager")
 	}
 
-	r.recorder = mgr.GetEventRecorderFor("legacy-controller")
+	r.recorder = mgr.GetEventRecorderFor("irsa-legacy-controller")
 	return nil
 }
 

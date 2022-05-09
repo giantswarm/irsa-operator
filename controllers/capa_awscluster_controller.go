@@ -180,7 +180,7 @@ func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err, "failed setting up with a controller manager")
 	}
 
-	r.recorder = mgr.GetEventRecorderFor("capa-controller")
+	r.recorder = mgr.GetEventRecorderFor("irsa-capa-controller")
 	return nil
 }
 
