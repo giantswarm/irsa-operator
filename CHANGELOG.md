@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prometheus metrics for `irsa-operator`.
+- Event recorder for `irsa-operator`.
+
 ## [0.3.6] - 2022-04-20
 
 ### Fixed
