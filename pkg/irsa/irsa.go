@@ -226,7 +226,7 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		return microerror.Mask(err)
 	}
 
-	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
+	ctrlmetrics.Errors.DeleteLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace())
 	s.Scope.Logger.Info("All IRSA resource have been successfully deleted.")
 
 	return nil
