@@ -9,6 +9,7 @@ metadata:
   annotations:
     giantswarm.io/monitoring-path: "/metrics"
     giantswarm.io/monitoring-port: "8080"
+    prometheus.io/scrape: "true"
 spec:
   selector:
     {{- include "labels.selector" . | nindent 4 }}
