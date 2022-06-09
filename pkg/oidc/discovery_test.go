@@ -1,0 +1,51 @@
+package oidc
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestGenerateDiscoveryFile(t *testing.T) {
+	type args struct {
+		bucketName string
+		region     string
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantIssuer  string
+		wantJWKSUri string
+		wantErr     bool
+	}{
+		{
+			name: "case 0",
+			args: args{
+				bucketName: "123456789012-g8s-test1-oidc-pod-identity",
+				region:     "eu-west-1",
+			},
+			wantIssuer:  "https://s3.eu-west-1.amazonaws.com/123456789012-g8s-test1-oidc-pod-identity",
+			wantJWKSUri: "https://s3.eu-west-1.amazonaws.com/123456789012-g8s-test1-oidc-pod-identity/keys.json",
+			wantErr:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GenerateDiscoveryFile(tt.args.bucketName, tt.args.region)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GenerateDiscoveryFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			v := &DiscoveryResponse{}
+			if err = json.NewDecoder(got).Decode(&v); err != nil {
+				t.Errorf("cannot decode: %v", err)
+				return
+			}
+			if v.Issuer != tt.wantIssuer {
+				t.Errorf("Issuer = %v, want %v", v.Issuer, tt.wantIssuer)
+			}
+			if v.JwksURI != tt.wantJWKSUri {
+				t.Errorf("JwksURI = %v, want %v", v.JwksURI, tt.wantJWKSUri)
+			}
+		})
+	}
+}

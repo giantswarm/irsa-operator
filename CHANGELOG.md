@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Align issuer and jwks_uri in OIDC discovery.
+
 ## [0.4.5] - 2022-06-01
 
 ### Fixed
