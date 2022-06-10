@@ -21,8 +21,8 @@ type DiscoveryResponse struct {
 func GenerateDiscoveryFile(bucketName, region string) (*bytes.Reader, error) {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
-		Issuer:                           fmt.Sprintf("https://%s.s3.%s.%s", bucketName, region, key.AWSEndpoint(region)),
-		JwksURI:                          fmt.Sprintf("https://%s.s3.%s.%s/keys.json", bucketName, region, key.AWSEndpoint(region)),
+		Issuer:                           fmt.Sprintf("https://s3.%s.%s/%s", region, key.AWSEndpoint(region), bucketName),
+		JwksURI:                          fmt.Sprintf("https://s3.%s.%s/%s/keys.json", region, key.AWSEndpoint(region), bucketName),
 		AuthorizationEndpoint:            "urn:kubernetes:programmatic_authorization",
 		ResponseTypesSupported:           []string{"id_token"},
 		SubjectTypesSupported:            []string{"public"},
