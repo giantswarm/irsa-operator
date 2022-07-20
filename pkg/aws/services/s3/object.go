@@ -1,65 +1,95 @@
 package s3
 
 import (
-	"bytes"
+	"bytes" //#nosec
 	"crypto/rsa"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
+	"github.com/peak/s3hash"
 
+	"github.com/giantswarm/irsa-operator/pkg/key"
 	oidc2 "github.com/giantswarm/irsa-operator/pkg/oidc"
 )
 
 var objects = []string{".well-known/openid-configuration", "keys.json"}
 
 type FileObject struct {
-	FileName string
-	Content  *bytes.Reader
+	FileName    string
+	Content     *bytes.Reader
+	ContentType string
 }
 
-func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
-	discoveryFile, err := oidc2.GenerateDiscoveryFile(bucketName, s.scope.Region())
+func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string, privateKey *rsa.PrivateKey) error {
+	discoveryFile, err := oidc2.GenerateDiscoveryFile(release, domain, bucketName, s.scope.Region())
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
-	keysFile, err := oidc2.GenerateKeysFile(key)
+	keysFile, err := oidc2.GenerateKeysFile(privateKey)
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
 	files := []FileObject{
 		{
-			FileName: objects[0],
-			Content:  discoveryFile,
+			FileName:    objects[0],
+			Content:     discoveryFile,
+			ContentType: "application/json",
 		},
 		{
-			FileName: objects[1],
-			Content:  keysFile,
+			FileName:    objects[1],
+			Content:     keysFile,
+			ContentType: "application/json",
 		},
 	}
 
 	s.scope.Info("Uploading files to bucket", "bucket", bucketName)
 	for _, i := range files {
+		content := *i.Content
 		fileName := i.FileName
 		i0 := &s3.HeadObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(fileName),
 		}
 
-		_, err := s.Client.HeadObject(i0)
+		eTagCalc, err := s3hash.Calculate(i.Content, int64(i.Content.Len()))
 		if err != nil {
-			i := s3.PutObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String(fileName),
-				ACL:    aws.String("public-read"),
-				Body:   i.Content,
+			return microerror.Mask(err)
+		}
+
+		var update bool
+		ho, err := s.Client.HeadObject(i0)
+		if ho.ETag != nil {
+			if strings.Replace(*ho.ETag, "\"", "", -1) != eTagCalc {
+				s.scope.Info(fmt.Sprintf("Hashdiff of object '%s' detected, reuploading", fileName), "bucket", bucketName)
+				update = true
 			}
-			_, err = s.Client.PutObject(&i)
+
+		}
+
+		if err != nil || update {
+			input := s3.PutObjectInput{
+				Bucket:        aws.String(bucketName),
+				Key:           aws.String(fileName),
+				ACL:           aws.String("public-read"),
+				ContentType:   aws.String(i.ContentType),
+				ContentLength: aws.Int64(int64(content.Len())),
+
+				Body: &content,
+			}
+
+			if key.IsV18Release(release) {
+				input.ACL = aws.String("private")
+			}
+			_, err = s.Client.PutObject(&input)
 			if err != nil {
+				s.scope.Info(fmt.Sprintf("failed to upload file: %v", err.Error()))
 				return microerror.Mask(err)
 			}
 			s.scope.Info(fmt.Sprintf("Uploaded '%s'", fileName), "bucket", bucketName)
@@ -69,7 +99,6 @@ func (s *Service) UploadFiles(bucketName string, key *rsa.PrivateKey) error {
 		}
 	}
 
-	s.scope.Info("Uploaded files to bucket", "bucket", bucketName)
 	return nil
 }
 

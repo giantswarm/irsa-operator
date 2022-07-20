@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/blang/semver"
+
 	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
@@ -18,17 +20,25 @@ type DiscoveryResponse struct {
 	ClaimsSupported                  []string `json:"claims_supported"`
 }
 
-func GenerateDiscoveryFile(bucketName, region string) (*bytes.Reader, error) {
+func GenerateDiscoveryFile(release *semver.Version, domain, bucketName, region string) (*bytes.Reader, error) {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
-		Issuer:                           fmt.Sprintf("https://s3.%s.%s/%s", region, key.AWSEndpoint(region), bucketName),
-		JwksURI:                          fmt.Sprintf("https://s3.%s.%s/%s/keys.json", region, key.AWSEndpoint(region), bucketName),
 		AuthorizationEndpoint:            "urn:kubernetes:programmatic_authorization",
 		ResponseTypesSupported:           []string{"id_token"},
 		SubjectTypesSupported:            []string{"public"},
 		IDTokenSigningAlgValuesSupported: []string{"RS256"},
 		ClaimsSupported:                  []string{"sub", "iss"},
 	}
+	if key.IsV18Release(release) {
+		// Cloudfront
+		v.Issuer = fmt.Sprintf("https://%s", domain)
+		v.JwksURI = fmt.Sprintf("https://%s/keys.json", domain)
+	} else {
+		// Public S3 endpoint
+		v.Issuer = fmt.Sprintf("https://s3.%s.%s/%s", region, key.AWSEndpoint(region), bucketName)
+		v.JwksURI = fmt.Sprintf("https://s3.%s.%s/%s/keys.json", region, key.AWSEndpoint(region), bucketName)
+	}
+
 	b := &bytes.Buffer{}
 
 	if err := json.NewEncoder(b).Encode(&v); err != nil {

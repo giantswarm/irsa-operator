@@ -114,8 +114,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
 		Region:           cluster.Spec.Provider.Region,
+		ReleaseVersion:   key.Release(cluster),
 		SecretName:       key.SecretName(cluster.Name),
 
 		Logger:  logger,

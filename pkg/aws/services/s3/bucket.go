@@ -1,7 +1,9 @@
 package s3
 
 import (
+	"bytes"
 	"fmt"
+	"text/template"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -16,6 +18,7 @@ const S3BucketEncryptionAlgorithm = "AES256"
 
 func (s *Service) CreateBucket(bucketName string) error {
 	i := &s3.CreateBucketInput{
+		ACL:    aws.String("private"),
 		Bucket: aws.String(bucketName),
 	}
 	s.scope.Info("Creating bucket", "bucket", bucketName)
@@ -131,4 +134,68 @@ func (s *Service) IsBucketReady(bucketName string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
+	var cloudfrontPolicy = `{
+	"Version": "2012-10-17",
+	"Id": "PolicyForCloudFrontPrivateContent",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Principal": {
+				"AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity {{.CloudFrontOriginAccessIdentityId}}"
+			},
+			"Action": "s3:GetObject",
+			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*"
+		}
+	]
+}`
+
+	t, err := template.New("").Parse(cloudfrontPolicy)
+	if err != nil {
+		return err
+	}
+	values := struct {
+		ARNPrefix                        string
+		BucketName                       string
+		CloudFrontOriginAccessIdentityId string
+	}{
+		key.ARNPrefix(s.scope.Region()),
+		bucketName,
+		oaiId,
+	}
+
+	var buf bytes.Buffer
+	err = t.Execute(&buf, values)
+	if err != nil {
+		return err
+	}
+	_, err = s.Client.PutBucketPolicy(&s3.PutBucketPolicyInput{
+		Bucket: aws.String(bucketName),
+		Policy: aws.String(buf.String()),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) BlockPublicAccess(bucketName string) error {
+	i := &s3.PutPublicAccessBlockInput{
+		Bucket: aws.String(bucketName),
+		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
+			BlockPublicAcls:       aws.Bool(true),
+			BlockPublicPolicy:     aws.Bool(true),
+			IgnorePublicAcls:      aws.Bool(true),
+			RestrictPublicBuckets: aws.Bool(true),
+		},
+	}
+	_, err := s.Client.PutPublicAccessBlock(i)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }

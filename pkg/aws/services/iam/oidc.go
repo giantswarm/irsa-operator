@@ -7,17 +7,23 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/blang/semver"
 	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) CreateOIDCProvider(bucketName, region string) error {
+func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName, region string) error {
 	s.scope.Info("Creating OIDC provider")
-
 	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
-	identityProviderURL := fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
+
+	var identityProviderURL string
+	if key.IsV18Release(release) {
+		identityProviderURL = fmt.Sprintf("https://%s", domain)
+	} else {
+		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
+	}
 
 	tp, err := caThumbPrint(s3Endpoint)
 	if err != nil {

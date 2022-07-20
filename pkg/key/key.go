@@ -3,6 +3,8 @@ package key
 import (
 	"fmt"
 	"strings"
+
+	"github.com/blang/semver"
 )
 
 const (
@@ -19,14 +21,25 @@ const (
 	S3TagOrganization  = "giantswarm.io/organization"
 
 	CustomerTagLabel = "tag.provider.giantswarm.io/"
+	ReleaseLabel     = "release.giantswarm.io/version"
+
+	V18Release = "18.0.0"
 )
 
 func BucketName(accountID, clusterName string) string {
 	return fmt.Sprintf("%s-g8s-%s-oidc-pod-identity", accountID, clusterName)
 }
 
+func ConfigName(clusterName string) string {
+	return fmt.Sprintf("%s-irsa-cloudfront", clusterName)
+}
+
 func SecretName(clusterName string) string {
 	return fmt.Sprintf("%s-service-account-v2", clusterName)
+}
+
+func Release(getter LabelsGetter) string {
+	return getter.GetLabels()[ReleaseLabel]
 }
 
 func AWSEndpoint(region string) string {
@@ -43,4 +56,9 @@ func ARNPrefix(region string) string {
 		arnPrefix = "aws-cn"
 	}
 	return arnPrefix
+}
+
+func IsV18Release(releaseVersion *semver.Version) bool {
+	v18Version, _ := semver.New(V18Release)
+	return releaseVersion.GE(*v18Version)
 }

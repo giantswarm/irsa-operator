@@ -4,11 +4,13 @@ go 1.17
 
 require (
 	github.com/aws/aws-sdk-go v1.43.2
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/giantswarm/apiextensions/v6 v6.0.0
 	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.0
 	github.com/go-logr/logr v1.2.2
 	github.com/nhalstead/sprint v1.0.6
+	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	gopkg.in/square/go-jose.v2 v2.5.1
@@ -31,7 +33,6 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
