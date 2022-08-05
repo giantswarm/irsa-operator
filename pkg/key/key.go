@@ -23,7 +23,7 @@ const (
 	CustomerTagLabel = "tag.provider.giantswarm.io/"
 	ReleaseLabel     = "release.giantswarm.io/version"
 
-	V18Release = "18.0.0"
+	V18AlphaRelease = "18.0.0-alpha1"
 )
 
 func BucketName(accountID, clusterName string) string {
@@ -59,6 +59,6 @@ func ARNPrefix(region string) string {
 }
 
 func IsV18Release(releaseVersion *semver.Version) bool {
-	v18Version, _ := semver.New(V18Release)
-	return releaseVersion.GE(*v18Version)
+	v18AlphaVersion, _ := semver.New(V18AlphaRelease)
+	return releaseVersion.GE(*v18AlphaVersion)
 }
