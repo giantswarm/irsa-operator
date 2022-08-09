@@ -104,10 +104,11 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeDistributionAlreadyExists:
-				s.scope.Info("Distribution already exists, ignoring creation")
+				s.scope.Info("Cloudfront distribution already exists, ignoring creation")
 				return nil, nil
 			}
 		}
+		s.scope.Error(err, "Error creating cloudfront distribution")
 		return nil, err
 	}
 
@@ -121,7 +122,7 @@ func (s *Service) DisableDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeNoSuchDistribution:
-				s.scope.Info("Distibution no longer exists, skipping deletion")
+				s.scope.Info("Cloudfront distibution no longer exists, skipping deletion")
 				return nil
 			}
 		}
@@ -142,7 +143,6 @@ func (s *Service) DisableDistribution(distributionId string) error {
 }
 
 func (s *Service) getDistribution(distributionId string) (*cloudfront.DistributionConfig, *string, error) {
-	s.scope.Info("Get cloudfront distribution config")
 	i := &cloudfront.GetDistributionInput{
 		Id: aws.String(distributionId),
 	}
@@ -162,7 +162,7 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeNoSuchDistribution:
-				s.scope.Info("Distibution no longer exists, skipping deletion")
+				s.scope.Info("Cloudfronr distribution no longer exists, skipping deletion")
 				return nil
 			}
 		}
@@ -184,6 +184,13 @@ func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
 	s.scope.Info("Deleting cloudfront origin access identity")
 	_, eTag, err := s.GetOriginAccessIdentity(oaiId)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case cloudfront.ErrCodeNoSuchCloudFrontOriginAccessIdentity:
+				s.scope.Info("Origin access identity no longer exists, skipping deletion")
+				return nil
+			}
+		}
 		s.scope.Error(err, "Error getting cloudfront origin access identity")
 		return err
 	}
@@ -200,13 +207,11 @@ func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
 }
 
 func (s *Service) GetOriginAccessIdentity(oaiId string) (*cloudfront.OriginAccessIdentity, *string, error) {
-	s.scope.Info("Getting cloudfront origin access identity")
 	i := &cloudfront.GetCloudFrontOriginAccessIdentityInput{
 		Id: aws.String(oaiId),
 	}
 	o, err := s.Client.GetCloudFrontOriginAccessIdentity(i)
 	if err != nil {
-		s.scope.Error(err, "Error creating cloudfront origin access identity")
 		return nil, nil, err
 	}
 
