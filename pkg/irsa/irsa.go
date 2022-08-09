@@ -306,14 +306,15 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 
 	oidcSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: s.Scope.ClusterNamespace(),
 			Name:      s.Scope.SecretName(),
+			Namespace: s.Scope.ClusterNamespace(),
 		},
 	}
-	err = s.Client.Delete(ctx, oidcSecret, &client.DeleteOptions{PropagationPolicy: toDeletePropagation(metav1.DeletePropagationForeground)})
+	err = s.Client.Delete(ctx, oidcSecret, &client.DeleteOptions{Raw: &metav1.DeleteOptions{}})
 	if apierrors.IsNotFound(err) {
 		// OIDC secret is already deleted
 		// fall through
+		s.Scope.Logger.Info("OIDC service account secret for cluster not found, skipping deletion")
 	} else if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC service account secret for cluster")
@@ -349,16 +350,11 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		return err
 	}
 
-	cloudfrontConfigMap := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: s.Scope.ClusterNamespace(),
-			Name:      s.Scope.ConfigName(),
-		},
-	}
-	err = s.Client.Delete(ctx, cloudfrontConfigMap, &client.DeleteOptions{PropagationPolicy: toDeletePropagation(metav1.DeletePropagationForeground)})
+	err = s.Client.Delete(ctx, cfConfig, &client.DeleteOptions{Raw: &metav1.DeleteOptions{}})
 	if apierrors.IsNotFound(err) {
 		// OIDC cloudfront config map is already deleted
 		// fall through
+		s.Scope.Logger.Info("OIDC cloudfront config map for cluster not found, skipping deletion")
 	} else if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC cloudfront config map for cluster")
