@@ -284,7 +284,20 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		s.Scope.Logger.Error(err, "failed to delete S3 bucket")
 		return err
 	}
-	err = s.IAM.DeleteOIDCProvider(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+
+	cfConfig := &v1.ConfigMap{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
+	if apierrors.IsNotFound(err) {
+		s.Scope.Logger.Error(err, "failed to get configmap for OIDC cloudfront")
+		return err
+	} else if err != nil {
+		return err
+	}
+
+	cfDomain := cfConfig.Data["domain"]
+	release, _ := semver.New(s.Scope.ReleaseVersion())
+
+	err = s.IAM.DeleteOIDCProvider(release, cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
@@ -307,15 +320,6 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		return err
 	}
 
-	cfConfig := &v1.ConfigMap{}
-	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
-	if apierrors.IsNotFound(err) {
-		s.Scope.Logger.Error(err, "failed to get configmap for OIDC cloudfront")
-		return err
-	} else if err != nil {
-		return err
-	}
-
 	cfDistributionId := cfConfig.Data["distributionId"]
 	cfOriginAccessIdentityId := cfConfig.Data["originAccessIdentityId"]
 
@@ -325,11 +329,16 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		return err
 	}
 
-	err = s.Cloudfront.DeleteDistribution(cfDistributionId)
-	if err != nil {
-		s.Scope.Logger.Error(err, "failed to delete cloudfront distribution for cluster")
-		return err
+	deleteDistribution := func() error {
+		err = s.Cloudfront.DeleteDistribution(cfDistributionId)
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to delete cloudfront distribution for cluster")
+			return err
+		}
+		return nil
 	}
+
+	backoff.Retry(deleteDistribution, backoff.NewMaxRetries(30, 1*time.Minute))
 
 	err = s.Cloudfront.DeleteOriginAccessIdentity(cfOriginAccessIdentityId)
 	if err != nil {

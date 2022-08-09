@@ -116,8 +116,15 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 
 func (s *Service) DisableDistribution(distributionId string) error {
 	s.scope.Info("Disabling cloudfront distribution")
-	distributionConfig, eTag, err := s.GetDistribution(distributionId)
+	distributionConfig, eTag, err := s.getDistribution(distributionId)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case cloudfront.ErrCodeNoSuchDistribution:
+				s.scope.Info("Distibution no longer exists, skipping deletion")
+				return nil
+			}
+		}
 		return err
 	}
 	distributionConfig.SetEnabled(false)
@@ -134,7 +141,7 @@ func (s *Service) DisableDistribution(distributionId string) error {
 	return nil
 }
 
-func (s *Service) GetDistribution(distributionId string) (*cloudfront.DistributionConfig, *string, error) {
+func (s *Service) getDistribution(distributionId string) (*cloudfront.DistributionConfig, *string, error) {
 	s.scope.Info("Get cloudfront distribution config")
 	i := &cloudfront.GetDistributionInput{
 		Id: aws.String(distributionId),
@@ -142,7 +149,6 @@ func (s *Service) GetDistribution(distributionId string) (*cloudfront.Distributi
 
 	o, err := s.Client.GetDistribution(i)
 	if err != nil {
-		s.scope.Error(err, "Error getting cloudfront distribution")
 		return nil, nil, err
 	}
 	return o.Distribution.DistributionConfig, o.ETag, nil
@@ -151,8 +157,15 @@ func (s *Service) GetDistribution(distributionId string) (*cloudfront.Distributi
 
 func (s *Service) DeleteDistribution(distributionId string) error {
 	s.scope.Info("Deleting cloudfront distribution")
-	_, eTag, err := s.GetDistribution(distributionId)
+	_, eTag, err := s.getDistribution(distributionId)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case cloudfront.ErrCodeNoSuchDistribution:
+				s.scope.Info("Distibution no longer exists, skipping deletion")
+				return nil
+			}
+		}
 		return err
 	}
 	i := &cloudfront.DeleteDistributionInput{
