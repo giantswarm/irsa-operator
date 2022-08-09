@@ -332,13 +332,16 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 	deleteDistribution := func() error {
 		err = s.Cloudfront.DeleteDistribution(cfDistributionId)
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to delete cloudfront distribution for cluster")
 			return err
 		}
 		return nil
 	}
 
-	backoff.Retry(deleteDistribution, backoff.NewMaxRetries(30, 1*time.Minute))
+	err = backoff.Retry(deleteDistribution, backoff.NewMaxRetries(30, 1*time.Minute))
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to delete cloudfront distribution")
+		return err
+	}
 
 	err = s.Cloudfront.DeleteOriginAccessIdentity(cfOriginAccessIdentityId)
 	if err != nil {
