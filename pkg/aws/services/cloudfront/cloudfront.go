@@ -48,8 +48,6 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
 				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
-					// Caching is disabled for the distribution.
-					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
 					TargetOriginId:       aws.String(fmt.Sprintf("%s-g8s-%s-oidc-pod-identity.s3.%s.%s", accountID, s.scope.ClusterName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
 					ViewerProtocolPolicy: aws.String("redirect-to-https"),
 				},
@@ -97,6 +95,11 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 				},
 			},
 		},
+	}
+
+	if !key.IsChina(s.scope.Region()) {
+		// Caching is disabled for the distribution.
+		i.DistributionConfigWithTags.DistributionConfig.DefaultCacheBehavior.CachePolicyId = aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad")
 	}
 	o, err := s.Client.CreateDistributionWithTags(i)
 	if err != nil {

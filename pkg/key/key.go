@@ -50,6 +50,10 @@ func AWSEndpoint(region string) string {
 	return awsEndpoint
 }
 
+func IsChina(region string) bool {
+	return strings.HasPrefix(region, "cn-")
+}
+
 func ARNPrefix(region string) string {
 	arnPrefix := "aws"
 	if strings.HasPrefix(region, "cn-") {
