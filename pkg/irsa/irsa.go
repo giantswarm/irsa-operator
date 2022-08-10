@@ -367,10 +367,6 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 	return nil
 }
 
-func toDeletePropagation(v metav1.DeletionPropagation) *metav1.DeletionPropagation {
-	return &v
-}
-
 func getCustomerTags(cluster *capi.Cluster) map[string]string {
 	customerTags := make(map[string]string)
 
