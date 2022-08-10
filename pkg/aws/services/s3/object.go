@@ -84,7 +84,7 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 				Body: &content,
 			}
 
-			if key.IsV18Release(release) {
+			if key.IsV18Release(release) && !key.IsChina(s.scope.Region()) {
 				input.ACL = aws.String("private")
 			}
 			_, err = s.Client.PutObject(&input)
@@ -103,8 +103,6 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 }
 
 func (s *Service) DeleteFiles(bucketName string) error {
-	s.scope.Info(fmt.Sprintf("Deleting %d files from bucket", len(objects)), "bucket", bucketName)
-
 	var deleteObjects []*s3.ObjectIdentifier
 	for _, obj := range objects {
 		deleteObjects = append(deleteObjects, &s3.ObjectIdentifier{
@@ -133,6 +131,5 @@ func (s *Service) DeleteFiles(bucketName string) error {
 		return err
 	}
 	s.scope.Info(fmt.Sprintf("Deleted %d files from bucket", len(objects)), "bucket", bucketName)
-
 	return nil
 }

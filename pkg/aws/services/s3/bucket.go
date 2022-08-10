@@ -21,8 +21,6 @@ func (s *Service) CreateBucket(bucketName string) error {
 		ACL:    aws.String("private"),
 		Bucket: aws.String(bucketName),
 	}
-	s.scope.Info("Creating bucket", "bucket", bucketName)
-
 	_, err := s.Client.CreateBucket(i)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -76,6 +74,7 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 		return err
 	}
 
+	s.scope.Info("Created tags for S3 bucket", bucketName)
 	return nil
 }
 
@@ -98,6 +97,7 @@ func (s *Service) EncryptBucket(bucketName string) error {
 		return err
 	}
 
+	s.scope.Info("Encrypted S3 bucket", bucketName)
 	return nil
 }
 
@@ -105,8 +105,6 @@ func (s *Service) DeleteBucket(bucketName string) error {
 	i := &s3.DeleteBucketInput{
 		Bucket: aws.String(bucketName),
 	}
-	s.scope.Info("Deleting bucket", "bucket", bucketName)
-
 	_, err := s.Client.DeleteBucket(i)
 
 	if err != nil {
@@ -120,7 +118,6 @@ func (s *Service) DeleteBucket(bucketName string) error {
 		return err
 	}
 	s.scope.Info("Deleted bucket", "bucket", bucketName)
-
 	return nil
 }
 
@@ -133,6 +130,7 @@ func (s *Service) IsBucketReady(bucketName string) error {
 	if err != nil {
 		return err
 	}
+	s.scope.Info("S3 bucket already exists, skipping creation", bucketName)
 	return nil
 }
 
@@ -144,7 +142,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 		{
 			"Effect": "Allow",
 			"Principal": {
-				"AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity {{.CloudFrontOriginAccessIdentityId}}"
+				"AWS": "arn:{{.ARNPrefix}}:iam::cloudfront:user/CloudFront Origin Access Identity {{.CloudFrontOriginAccessIdentityId}}"
 			},
 			"Action": "s3:GetObject",
 			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*"
@@ -179,6 +177,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 		return err
 	}
 
+	s.scope.Info("Restricted access to allow Cloudfront reaching S3 bucket", bucketName)
 	return nil
 }
 
@@ -196,6 +195,7 @@ func (s *Service) BlockPublicAccess(bucketName string) error {
 	if err != nil {
 		return err
 	}
+	s.scope.Info("Blocked public access for S3 bucket", bucketName)
 	return nil
 
 }

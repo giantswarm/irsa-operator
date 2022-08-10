@@ -66,3 +66,13 @@ func IsV18Release(releaseVersion *semver.Version) bool {
 	v18AlphaVersion, _ := semver.New(V18AlphaRelease)
 	return releaseVersion.GE(*v18AlphaVersion)
 }
+
+func ContainsFinalizer(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}

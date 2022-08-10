@@ -29,7 +29,7 @@ func GenerateDiscoveryFile(release *semver.Version, domain, bucketName, region s
 		IDTokenSigningAlgValuesSupported: []string{"RS256"},
 		ClaimsSupported:                  []string{"sub", "iss"},
 	}
-	if key.IsV18Release(release) {
+	if key.IsV18Release(release) && !key.IsChina(region) {
 		// Cloudfront
 		v.Issuer = fmt.Sprintf("https://%s", domain)
 		v.JwksURI = fmt.Sprintf("https://%s/keys.json", domain)

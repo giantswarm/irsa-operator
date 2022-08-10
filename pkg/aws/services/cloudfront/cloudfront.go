@@ -19,7 +19,6 @@ type Distribution struct {
 }
 
 func (s *Service) CreateOriginAccessIdentity() (string, error) {
-	s.scope.Info("Creating cloudfront origin access identity")
 	i := &cloudfront.CreateCloudFrontOriginAccessIdentityInput{
 		CloudFrontOriginAccessIdentityConfig: &cloudfront.OriginAccessIdentityConfig{
 			CallerReference: aws.String(fmt.Sprintf("access-identity-cluster-%s", s.scope.ClusterName())),
@@ -31,12 +30,12 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 		s.scope.Error(err, "Error creating cloudfront origin access identity")
 		return "", err
 	}
+	s.scope.Info("Created cloudfront origin access identity")
 
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
 func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
-	s.scope.Info("Creating cloudfront distribution")
 	oaiId, err := s.CreateOriginAccessIdentity()
 	if err != nil {
 		s.scope.Error(err, "Error creating cloudfront origin access identity")
@@ -48,6 +47,8 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
 				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
+					// AWS managed cache policy id, caching is disabled for the distribution.
+					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
 					TargetOriginId:       aws.String(fmt.Sprintf("%s-g8s-%s-oidc-pod-identity.s3.%s.%s", accountID, s.scope.ClusterName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
 					ViewerProtocolPolicy: aws.String("redirect-to-https"),
 				},
@@ -97,10 +98,6 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 		},
 	}
 
-	if !key.IsChina(s.scope.Region()) {
-		// Caching is disabled for the distribution.
-		i.DistributionConfigWithTags.DistributionConfig.DefaultCacheBehavior.CachePolicyId = aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad")
-	}
 	o, err := s.Client.CreateDistributionWithTags(i)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -113,12 +110,12 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 		s.scope.Error(err, "Error creating cloudfront distribution")
 		return nil, err
 	}
+	s.scope.Info("Created cloudfront distribution")
 
 	return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
 }
 
 func (s *Service) DisableDistribution(distributionId string) error {
-	s.scope.Info("Disabling cloudfront distribution")
 	distributionConfig, eTag, err := s.getDistribution(distributionId)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -141,6 +138,7 @@ func (s *Service) DisableDistribution(distributionId string) error {
 		s.scope.Error(err, "Error disabling cloudfront distribution")
 		return err
 	}
+	s.scope.Info("Disabled cloudfront distribution")
 	return nil
 }
 
@@ -158,13 +156,15 @@ func (s *Service) getDistribution(distributionId string) (*cloudfront.Distributi
 }
 
 func (s *Service) DeleteDistribution(distributionId string) error {
-	s.scope.Info("Deleting cloudfront distribution")
 	_, eTag, err := s.getDistribution(distributionId)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
+			case cloudfront.ErrCodeDistributionNotDisabled:
+				s.scope.Info("Cloudfront distribution is not disabled yet, waiting ...")
+				return err
 			case cloudfront.ErrCodeNoSuchDistribution:
-				s.scope.Info("Cloudfronr distribution no longer exists, skipping deletion")
+				s.scope.Info("Cloudfront distribution no longer exists, skipping deletion")
 				return nil
 			}
 		}
@@ -179,11 +179,11 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 		s.scope.Error(err, "Error deleting cloudfront distribution")
 		return err
 	}
+	s.scope.Info("Deleted cloudfront distribution")
 	return nil
 }
 
 func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
-	s.scope.Info("Deleting cloudfront origin access identity")
 	_, eTag, err := s.GetOriginAccessIdentity(oaiId)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -205,6 +205,7 @@ func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
 		s.scope.Error(err, "Error deleting cloudfront origin access identity")
 		return err
 	}
+	s.scope.Info("Deleted cloudfront origin access identity")
 	return nil
 }
 

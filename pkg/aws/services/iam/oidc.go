@@ -15,11 +15,10 @@ import (
 )
 
 func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName, region string) error {
-	s.scope.Info("Creating OIDC provider")
 	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
 
 	var identityProviderURL string
-	if key.IsV18Release(release) {
+	if key.IsV18Release(release) && !key.IsChina(region) {
 		identityProviderURL = fmt.Sprintf("https://%s", domain)
 	} else {
 		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
@@ -53,8 +52,6 @@ func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName
 }
 
 func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerTags map[string]string) error {
-	s.scope.Info("Creating tags on OIDC provider")
-
 	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.TagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
@@ -86,6 +83,7 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 	if err != nil {
 		return err
 	}
+	s.scope.Info("Created tags for OIDC provider")
 	return nil
 }
 
@@ -113,8 +111,6 @@ func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (ma
 }
 
 func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
-	s.scope.Info("Removing OIDC tags")
-
 	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.UntagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
@@ -129,14 +125,13 @@ func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys [
 	if err != nil {
 		return err
 	}
+	s.scope.Info("Removed tags for OIDC provider")
 	return nil
 }
 
 func (s *Service) DeleteOIDCProvider(release *semver.Version, cfDomain, accountID, bucketName, region string) error {
-	s.scope.Info("Deleting OIDC provider")
-
 	var providerArn string
-	if key.IsV18Release(release) {
+	if key.IsV18Release(release) && !key.IsChina(region) {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
 	} else {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
