@@ -59,8 +59,7 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 						Quantity:        aws.Int64(0),
 					},
 				},
-				Enabled:       aws.Bool(true),
-				IsIPV6Enabled: aws.Bool(true),
+				Enabled: aws.Bool(true),
 				Origins: &cloudfront.Origins{
 					Items: []*cloudfront.Origin{
 						{
