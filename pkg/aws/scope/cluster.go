@@ -8,11 +8,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/blang/semver"
-	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/klogr"
+
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
