@@ -7,6 +7,8 @@ import (
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/blang/semver"
+	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -135,7 +137,11 @@ func (s *ClusterScope) ARN() string {
 
 // BucketName returns the name of the OIDC S3 bucket.
 func (s *ClusterScope) BucketName() string {
-	return s.bucketName
+	if key.IsV18Release(s.Release()) {
+		return fmt.Sprintf("%s-ng", s.bucketName)
+	} else {
+		return s.bucketName
+	}
 }
 
 // Cluster returns the AWS infrastructure cluster object.
@@ -171,6 +177,12 @@ func (s *ClusterScope) Region() string {
 // ReleaseVersion returns the release version of the AWS cluster object.
 func (s *ClusterScope) ReleaseVersion() string {
 	return s.releaseVersion
+}
+
+// Release returns the semver version of the AWS cluster object.
+func (s *ClusterScope) Release() *semver.Version {
+	version, _ := semver.New(s.ReleaseVersion())
+	return version
 }
 
 // SecretName returns the name of the OIDC secret from the cluster.

@@ -35,7 +35,7 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
-func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
+func (s *Service) CreateDistribution(accountID string, customerTags map[string]string) (*Distribution, error) {
 	oaiId, err := s.CreateOriginAccessIdentity()
 	if err != nil {
 		s.scope.Error(err, "Error creating cloudfront origin access identity")
@@ -49,7 +49,7 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 					// AWS managed cache policy id, caching is disabled for the distribution.
 					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
-					TargetOriginId:       aws.String(fmt.Sprintf("%s-g8s-%s-oidc-pod-identity.s3.%s.%s", accountID, s.scope.ClusterName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+					TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
 					ViewerProtocolPolicy: aws.String("redirect-to-https"),
 				},
 				Restrictions: &cloudfront.Restrictions{
@@ -96,6 +96,14 @@ func (s *Service) CreateDistribution(accountID string) (*Distribution, error) {
 				},
 			},
 		},
+	}
+
+	for k, v := range customerTags {
+		tag := &cloudfront.Tag{
+			Key:   aws.String(k),
+			Value: aws.String(v),
+		}
+		i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 	}
 
 	o, err := s.Client.CreateDistributionWithTags(i)
@@ -176,6 +184,13 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 	}
 	_, err = s.Client.DeleteDistribution(i)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case cloudfront.ErrCodeDistributionNotDisabled:
+				s.scope.Info("Cloudfront distribution is not disabled yet, waiting ...")
+				return err
+			}
+		}
 		s.scope.Error(err, "Error deleting cloudfront distribution")
 		return err
 	}

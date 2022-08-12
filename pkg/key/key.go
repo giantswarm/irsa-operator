@@ -14,6 +14,8 @@ const (
 	FinalizerName        = "irsa-operator.finalizers.giantswarm.io"
 	//TODO move it into k8smetadata
 	IRSAAnnotation = "alpha.aws.giantswarm.io/iam-roles-for-service-accounts"
+	// Upgrading existing IRSA clusters witout breaking clusters
+	IRSAMigrationAnnotation = "alpha.aws.giantswarm.io/irsa-migration"
 
 	S3TagCloudProvider = "kubernetes.io/cluster/%s"
 	S3TagCluster       = "giantswarm.io/cluster"

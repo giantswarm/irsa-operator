@@ -24,7 +24,7 @@ func TestGenerateDiscoveryFile(t *testing.T) {
 			name: "case 0",
 			args: args{
 				domain:     "foo.cloudfront.net",
-				bucketName: "123456789012-g8s-test1-oidc-pod-identity",
+				bucketName: "123456789012-g8s-test1-oidc-pod-identity-ng",
 				region:     "eu-west-1",
 			},
 			wantIssuer:  "https://foo.cloudfront.net",

@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -55,8 +55,6 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	var cfOaiId string
 
 	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
-	release, _ := semver.New(s.Scope.ReleaseVersion())
-
 	oidcSecret := &v1.Secret{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
@@ -98,7 +96,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	b := backoff.NewMaxRetries(10, 15*time.Second)
+	b := backoff.NewMaxRetries(20, 15*time.Second)
 
 	err = s.S3.IsBucketReady(s.Scope.BucketName())
 	// check if bucket exists
@@ -145,7 +143,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 
 	// only restrict access when IRSA is used via Cloudfront in v18 and non-China region
-	if key.IsV18Release(release) && !key.IsChina(s.Scope.Region()) {
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to block public access")
@@ -153,9 +151,9 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		}
 	}
 
-	// Cloudfront only for non-China region
-	if !key.IsChina(s.Scope.Region()) {
-		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID())
+	// Cloudfront only for non-China region and v18.x.x release or higher
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
+		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
@@ -205,7 +203,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	}
 
 	uploadFiles := func() error {
-		return s.S3.UploadFiles(release, cfDomain, s.Scope.BucketName(), privateKey)
+		return s.S3.UploadFiles(s.Scope.Release(), cfDomain, s.Scope.BucketName(), privateKey)
 	}
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -213,8 +211,8 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// only restrict access when IRSA is used via Cloudfront in v18 and non-China region
-	if key.IsV18Release(release) && !key.IsChina(s.Scope.Region()) {
+	// restrict access only for non-China region and v18.x.x release or higher
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
 		err = backoff.Retry(uploadPolicy, b)
 		if err != nil {
@@ -222,9 +220,17 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
+	// restrict access only for non-China region and v18.x.x release or higher
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
+		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger.Error(err, "failed to block public access")
+			return err
+		}
+	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.CreateOIDCProvider(release, cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		return s.IAM.CreateOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
@@ -233,14 +239,14 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	err = s.IAM.CreateOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
+	err = s.IAM.CreateOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create tags")
 		return err
 	}
 
-	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
@@ -249,7 +255,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 
 	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
 		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
-		if err := s.IAM.RemoveOIDCTags(s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
+		if err := s.IAM.RemoveOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to remove tags")
 			return microerror.Mask(err)
@@ -279,7 +285,8 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 	var cfDistributionId string
 	var cfOriginAccessIdentityId string
 	cfConfig := &v1.ConfigMap{}
-	if !key.IsChina(s.Scope.Region()) {
+
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
 			s.Scope.Logger.Error(err, "failed to get configmap for OIDC cloudfront")
@@ -294,8 +301,7 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		cfOriginAccessIdentityId = cfConfig.Data["originAccessIdentityId"]
 	}
 
-	release, _ := semver.New(s.Scope.ReleaseVersion())
-	err = s.IAM.DeleteOIDCProvider(release, cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	err = s.IAM.DeleteOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
@@ -319,7 +325,7 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 		return err
 	}
 
-	if !key.IsChina(s.Scope.Region()) {
+	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
 		err = s.Cloudfront.DisableDistribution(cfDistributionId)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to disable cloudfront distribution for cluster")

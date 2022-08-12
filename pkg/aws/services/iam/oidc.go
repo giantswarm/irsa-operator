@@ -15,16 +15,16 @@ import (
 )
 
 func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName, region string) error {
-	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
-
 	var identityProviderURL string
+
+	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
 	if key.IsV18Release(release) && !key.IsChina(region) {
 		identityProviderURL = fmt.Sprintf("https://%s", domain)
 	} else {
 		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
 	}
 
-	tp, err := caThumbPrint(s3Endpoint)
+	tp, err := caThumbPrint(identityProviderURL)
 	if err != nil {
 		return err
 	}
@@ -51,8 +51,13 @@ func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName
 	return nil
 }
 
-func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerTags map[string]string) error {
-	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
+func (s *Service) CreateOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string, customerTags map[string]string) error {
+	var providerArn string
+	if key.IsV18Release(release) && !key.IsChina(region) {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
+	} else {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
+	}
 	i := &iam.TagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		Tags: []*iam.Tag{
@@ -87,10 +92,14 @@ func (s *Service) CreateOIDCTags(accountID, bucketName, region string, customerT
 	return nil
 }
 
-func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (map[string]string, error) {
-	s.scope.Info("Listing OIDC tags")
+func (s *Service) ListCustomerOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string) (map[string]string, error) {
+	var providerArn string
+	if key.IsV18Release(release) && !key.IsChina(region) {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
+	} else {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
+	}
 
-	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
 	i := &iam.ListOpenIDConnectProviderTagsInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 	}
@@ -110,8 +119,13 @@ func (s *Service) ListCustomerOIDCTags(accountID, bucketName, region string) (ma
 	return oidcTags, nil
 }
 
-func (s *Service) RemoveOIDCTags(accountID, bucketName, region string, tagKeys []string) error {
-	providerArn := fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
+func (s *Service) RemoveOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string, tagKeys []string) error {
+	var providerArn string
+	if key.IsV18Release(release) && !key.IsChina(region) {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
+	} else {
+		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
+	}
 	i := &iam.UntagOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerArn),
 		TagKeys:                  []*string{},
@@ -157,7 +171,10 @@ func (s *Service) DeleteOIDCProvider(release *semver.Version, cfDomain, accountI
 }
 
 func caThumbPrint(ep string) (string, error) {
-	fp, _ := sprint.GetFingerprint(ep, false)
+	fp, err := sprint.GetFingerprint(ep, false)
+	if err != nil {
+		return "", err
+	}
 	return fp.SHA1, nil
 }
 

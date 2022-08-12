@@ -146,7 +146,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if err != nil {
+		if errors.IsConflict(err) {
+			logger.Info("Failed to remove finalizer on AWSCluster CR, conflict trying to update object")
+			return ctrl.Result{}, nil
+		} else if err != nil {
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -166,7 +169,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if err != nil {
+		if errors.IsConflict(err) {
+			logger.Info("Failed to add finalizer on AWSCluster CR, conflict trying to update object")
+			return ctrl.Result{}, nil
+		} else if err != nil {
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
