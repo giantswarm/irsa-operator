@@ -62,8 +62,8 @@ func (s *Service) CreateDistribution(accountID string, customerTags map[string]s
 				Origins: &cloudfront.Origins{
 					Items: []*cloudfront.Origin{
 						{
-							Id:         aws.String(fmt.Sprintf("%s-g8s-%s-oidc-pod-identity.s3.%s.%s", accountID, s.scope.ClusterName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-							DomainName: aws.String(fmt.Sprintf("%s-g8s-%s-oidc-pod-identity.s3.%s.%s", accountID, s.scope.ClusterName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+							Id:         aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+							DomainName: aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
 							OriginShield: &cloudfront.OriginShield{
 								Enabled: aws.Bool(false),
 							},

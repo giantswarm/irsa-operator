@@ -289,8 +289,8 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) {
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
-			s.Scope.Logger.Error(err, "failed to get configmap for OIDC cloudfront")
-			return err
+			s.Scope.Logger.Info("Configmap for OIDC cloudfront does not exist anymore, skipping")
+			return nil
 		} else if err != nil {
 			s.Scope.Logger.Error(err, "unexpected error")
 			return err

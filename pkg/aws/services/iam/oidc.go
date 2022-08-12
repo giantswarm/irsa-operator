@@ -24,7 +24,7 @@ func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName
 		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
 	}
 
-	tp, err := caThumbPrint(s3Endpoint)
+	tp, err := caThumbPrint(identityProviderURL)
 	if err != nil {
 		return err
 	}
