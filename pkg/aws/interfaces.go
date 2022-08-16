@@ -18,6 +18,8 @@ type ClusterScoper interface {
 
 	// ARN returns the workload cluster assumed role to operate.
 	ARN() string
+	// BucketName returns the AWS infrastructure cluster object bucket name.
+	BucketName() string
 	// Cluster returns the AWS infrastructure cluster.
 	Cluster() runtime.Object
 	// Cluster returns the AWS infrastructure cluster name.

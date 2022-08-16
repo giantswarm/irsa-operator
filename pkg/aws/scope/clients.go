@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,8 +17,18 @@ import (
 
 // AWSClients contains all the aws clients used by the scopes
 type AWSClients struct {
-	S3  *s3.S3
-	IAM *iam.IAM
+	S3         *s3.S3
+	IAM        *iam.IAM
+	Cloudfront *cloudfront.CloudFront
+}
+
+// NewCloudfrontClient creates a new Cloudfront API client for a given session
+func NewCloudfrontClient(session aws.Session, arn string, target runtime.Object) *cloudfront.CloudFront {
+	CloudfrontClient := cloudfront.New(session.Session(), &awsclient.Config{Credentials: stscreds.NewCredentials(session.Session(), arn)})
+	CloudfrontClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	CloudfrontClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return CloudfrontClient
 }
 
 // NewS3Client creates a new S3 API client for a given session

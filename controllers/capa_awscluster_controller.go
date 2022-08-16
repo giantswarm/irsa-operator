@@ -111,8 +111,10 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
 		Region:           cluster.Spec.Region,
+		ReleaseVersion:   key.Release(cluster),
 		SecretName:       key.SecretName(cluster.Name),
 
 		Logger:  logger,

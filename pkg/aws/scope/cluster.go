@@ -7,10 +7,13 @@ import (
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/blang/semver"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/klogr"
+
+	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
@@ -21,8 +24,10 @@ type ClusterScopeParams struct {
 	Cluster          runtime.Object
 	ClusterName      string
 	ClusterNamespace string
+	ConfigName       string
 	Installation     string
 	Region           string
+	ReleaseVersion   string
 	SecretName       string
 
 	Logger  logr.Logger
@@ -50,11 +55,17 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.ClusterNamespace == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ClusterNamespace")
 	}
+	if params.ConfigName == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string ConfigName")
+	}
 	if params.Installation == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string Installation")
 	}
 	if params.Region == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string Region")
+	}
+	if params.ReleaseVersion == "" {
+		return nil, errors.New("failed to generate new scope from emtpy string ReleaseVersion")
 	}
 	if params.SecretName == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string SecretName")
@@ -86,8 +97,10 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		cluster:          params.Cluster,
 		clusterName:      params.ClusterName,
 		clusterNamespace: params.ClusterNamespace,
+		configName:       params.ConfigName,
 		installation:     params.Installation,
 		region:           params.Region,
+		releaseVersion:   params.ReleaseVersion,
 		secretName:       params.SecretName,
 
 		Logger:  params.Logger,
@@ -103,8 +116,10 @@ type ClusterScope struct {
 	cluster          runtime.Object
 	clusterName      string
 	clusterNamespace string
+	configName       string
 	installation     string
 	region           string
+	releaseVersion   string
 	secretName       string
 
 	logr.Logger
@@ -123,7 +138,11 @@ func (s *ClusterScope) ARN() string {
 
 // BucketName returns the name of the OIDC S3 bucket.
 func (s *ClusterScope) BucketName() string {
-	return s.bucketName
+	if key.IsV18Release(s.Release()) {
+		return fmt.Sprintf("%s-v2", s.bucketName)
+	} else {
+		return s.bucketName
+	}
 }
 
 // Cluster returns the AWS infrastructure cluster object.
@@ -141,6 +160,11 @@ func (s *ClusterScope) ClusterNamespace() string {
 	return s.clusterNamespace
 }
 
+// ConfigName returns the name of Cloudfront config from the cluster.
+func (s *ClusterScope) ConfigName() string {
+	return s.configName
+}
+
 // Installation returns the name of the installation where the cluster object is located.
 func (s *ClusterScope) Installation() string {
 	return s.installation
@@ -149,6 +173,17 @@ func (s *ClusterScope) Installation() string {
 // Region returns the region of the AWS infrastructure cluster object.
 func (s *ClusterScope) Region() string {
 	return s.region
+}
+
+// ReleaseVersion returns the release version of the AWS cluster object.
+func (s *ClusterScope) ReleaseVersion() string {
+	return s.releaseVersion
+}
+
+// Release returns the semver version of the AWS cluster object.
+func (s *ClusterScope) Release() *semver.Version {
+	version, _ := semver.New(s.ReleaseVersion())
+	return version
 }
 
 // SecretName returns the name of the OIDC secret from the cluster.

@@ -26,8 +26,8 @@ import (
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -65,12 +65,15 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	cluster := &infrastructurev1alpha3.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		logger.Error(err, "Cluster does not exist")
+		if errors.IsNotFound(err) {
+			logger.Info("AWSCluster no longer exists")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
 	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s' , ignoring CR", key.IRSAAnnotation))
+		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s', ignoring CR", key.IRSAAnnotation))
 		// resource does not contain IRSA annotation, try later
 		return ctrl.Result{
 			Requeue:      true,
@@ -114,8 +117,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
+		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
 		Region:           cluster.Spec.Provider.Region,
+		ReleaseVersion:   key.Release(cluster),
 		SecretName:       key.SecretName(cluster.Name),
 
 		Logger:  logger,
@@ -128,20 +133,23 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Create IRSA service.
 	irsaService := irsa.New(clusterScope, r.Client)
 
-	if cluster.DeletionTimestamp != nil {
+	if !cluster.DeletionTimestamp.IsZero() {
+		finalizers := cluster.GetFinalizers()
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
+			return ctrl.Result{}, nil
+		}
+
 		err := irsaService.Delete(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-			logger.Error(err, "Cluster does not exist")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
-
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if err != nil {
+		if errors.IsConflict(err) {
+			logger.Info("Failed to remove finalizer on AWSCluster CR, conflict trying to update object")
+			return ctrl.Result{}, nil
+		} else if err != nil {
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -161,7 +169,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if err != nil {
+		if errors.IsConflict(err) {
+			logger.Info("Failed to add finalizer on AWSCluster CR, conflict trying to update object")
+			return ctrl.Result{}, nil
+		} else if err != nil {
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -176,15 +187,10 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LegacyClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	r.recorder = mgr.GetEventRecorderFor("irsa-legacy-controller")
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha3.AWSCluster{}).
 		Complete(r)
-	if err != nil {
-		return errors.Wrap(err, "failed setting up with a controller manager")
-	}
-
-	r.recorder = mgr.GetEventRecorderFor("irsa-legacy-controller")
-	return nil
 }
 
 func (r *LegacyClusterReconciler) sendEvent(cluster *v1alpha3.AWSCluster, eventtype, reason, message string) {
