@@ -139,7 +139,7 @@ func (s *ClusterScope) ARN() string {
 // BucketName returns the name of the OIDC S3 bucket.
 func (s *ClusterScope) BucketName() string {
 	if key.IsV18Release(s.Release()) {
-		return fmt.Sprintf("%s-ng", s.bucketName)
+		return fmt.Sprintf("%s-v2", s.bucketName)
 	} else {
 		return s.bucketName
 	}
