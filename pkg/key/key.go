@@ -28,10 +28,6 @@ const (
 	V18AlphaRelease = "18.0.0-alpha1"
 )
 
-var (
-	migrationClusters = []string{}
-)
-
 func BucketName(accountID, clusterName string) string {
 	return fmt.Sprintf("%s-g8s-%s-oidc-pod-identity", accountID, clusterName)
 }
@@ -80,14 +76,5 @@ func ContainsFinalizer(s []string, str string) bool {
 		}
 	}
 
-	return false
-}
-
-func NeedsMigration(cluster string, migrationClusters []string) bool {
-	for _, migrationCluster := range migrationClusters {
-		if migrationCluster == cluster {
-			return true
-		}
-	}
 	return false
 }
