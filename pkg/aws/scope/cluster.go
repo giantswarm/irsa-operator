@@ -26,6 +26,7 @@ type ClusterScopeParams struct {
 	ClusterNamespace string
 	ConfigName       string
 	Installation     string
+	Migration        bool
 	Region           string
 	ReleaseVersion   string
 	SecretName       string
@@ -99,6 +100,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		clusterNamespace: params.ClusterNamespace,
 		configName:       params.ConfigName,
 		installation:     params.Installation,
+		migration:        params.Migration,
 		region:           params.Region,
 		releaseVersion:   params.ReleaseVersion,
 		secretName:       params.SecretName,
@@ -118,6 +120,7 @@ type ClusterScope struct {
 	clusterNamespace string
 	configName       string
 	installation     string
+	migration        bool
 	region           string
 	releaseVersion   string
 	secretName       string
@@ -138,7 +141,7 @@ func (s *ClusterScope) ARN() string {
 
 // BucketName returns the name of the OIDC S3 bucket.
 func (s *ClusterScope) BucketName() string {
-	if key.IsV18Release(s.Release()) {
+	if key.IsV18Release(s.Release()) || s.MigrationNeeded() {
 		return fmt.Sprintf("%s-v2", s.bucketName)
 	} else {
 		return s.bucketName
@@ -168,6 +171,11 @@ func (s *ClusterScope) ConfigName() string {
 // Installation returns the name of the installation where the cluster object is located.
 func (s *ClusterScope) Installation() string {
 	return s.installation
+}
+
+// MigrationNeeded returns if the cluster object needs migration beforehand.
+func (s *ClusterScope) MigrationNeeded() bool {
+	return s.migration
 }
 
 // Region returns the region of the AWS infrastructure cluster object.

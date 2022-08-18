@@ -35,7 +35,7 @@ func TestGenerateDiscoveryFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			release, _ := semver.New("18.0.0")
-			got, err := GenerateDiscoveryFile(release, tt.args.domain, tt.args.bucketName, tt.args.region)
+			got, err := GenerateDiscoveryFile(release, tt.args.domain, tt.args.bucketName, tt.args.region, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateDiscoveryFile() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -18,7 +18,7 @@ func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName
 	var identityProviderURL string
 
 	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
 		identityProviderURL = fmt.Sprintf("https://%s", domain)
 	} else {
 		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
@@ -53,7 +53,7 @@ func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName
 
 func (s *Service) CreateOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string, customerTags map[string]string) error {
 	var providerArn string
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
 	} else {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
@@ -94,7 +94,7 @@ func (s *Service) CreateOIDCTags(release *semver.Version, cfDomain, accountID, b
 
 func (s *Service) ListCustomerOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string) (map[string]string, error) {
 	var providerArn string
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
 	} else {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
@@ -121,7 +121,7 @@ func (s *Service) ListCustomerOIDCTags(release *semver.Version, cfDomain, accoun
 
 func (s *Service) RemoveOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string, tagKeys []string) error {
 	var providerArn string
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
 	} else {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)
@@ -145,7 +145,7 @@ func (s *Service) RemoveOIDCTags(release *semver.Version, cfDomain, accountID, b
 
 func (s *Service) DeleteOIDCProvider(release *semver.Version, cfDomain, accountID, bucketName, region string) error {
 	var providerArn string
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", key.ARNPrefix(region), accountID, cfDomain)
 	} else {
 		providerArn = fmt.Sprintf("arn:%s:iam::%s:oidc-provider/s3.%s.%s/%s", key.ARNPrefix(region), accountID, region, key.AWSEndpoint(region), bucketName)

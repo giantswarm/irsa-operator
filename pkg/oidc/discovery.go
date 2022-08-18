@@ -20,7 +20,7 @@ type DiscoveryResponse struct {
 	ClaimsSupported                  []string `json:"claims_supported"`
 }
 
-func GenerateDiscoveryFile(release *semver.Version, domain, bucketName, region string) (*bytes.Reader, error) {
+func GenerateDiscoveryFile(release *semver.Version, domain, bucketName, region string, migrationNeeded bool) (*bytes.Reader, error) {
 	// see https://github.com/aws/amazon-eks-pod-identity-webhook/blob/master/SELF_HOSTED_SETUP.md#create-the-oidc-discovery-and-keys-documents
 	v := DiscoveryResponse{
 		AuthorizationEndpoint:            "urn:kubernetes:programmatic_authorization",
@@ -29,7 +29,7 @@ func GenerateDiscoveryFile(release *semver.Version, domain, bucketName, region s
 		IDTokenSigningAlgValuesSupported: []string{"RS256"},
 		ClaimsSupported:                  []string{"sub", "iss"},
 	}
-	if key.IsV18Release(release) && !key.IsChina(region) {
+	if (key.IsV18Release(release) && !key.IsChina(region)) || (migrationNeeded && !key.IsChina(region)) {
 		// Cloudfront
 		v.Issuer = fmt.Sprintf("https://%s", domain)
 		v.JwksURI = fmt.Sprintf("https://%s/keys.json", domain)
