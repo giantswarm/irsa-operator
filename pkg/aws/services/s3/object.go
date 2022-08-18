@@ -26,7 +26,7 @@ type FileObject struct {
 }
 
 func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string, privateKey *rsa.PrivateKey) error {
-	discoveryFile, err := oidc2.GenerateDiscoveryFile(release, domain, bucketName, s.scope.Region())
+	discoveryFile, err := oidc2.GenerateDiscoveryFile(release, domain, bucketName, s.scope.Region(), s.scope.MigrationNeeded())
 	if err != nil {
 		return microerror.Mask(err)
 	}
@@ -84,7 +84,7 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 				Body: &content,
 			}
 
-			if key.IsV18Release(release) && !key.IsChina(s.scope.Region()) {
+			if (key.IsV18Release(release) && !key.IsChina(s.scope.Region())) || (s.scope.MigrationNeeded() && !key.IsChina(s.scope.Region())) {
 				input.ACL = aws.String("private")
 			}
 			_, err = s.Client.PutObject(&input)

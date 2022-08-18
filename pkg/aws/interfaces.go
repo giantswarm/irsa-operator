@@ -28,6 +28,8 @@ type ClusterScoper interface {
 	ClusterNamespace() string
 	// Installation returns the installation name.
 	Installation() string
+	// MigrationNeeded checks if cluster needs migrated first.
+	MigrationNeeded() bool
 	// Region returns the AWS infrastructure cluster object region.
 	Region() string
 }

@@ -81,6 +81,20 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}, nil
 	}
 
+	// check if cluster needs to be migrated
+	cm := &v1.ConfigMap{}
+	var migration bool
+	if err := r.Get(ctx, types.NamespacedName{Name: "irsa-migration", Namespace: "giantswarm"}, cm); err != nil {
+		if errors.IsNotFound(err) {
+			// no migration needed
+		} else if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+	}
+	if _, ok := cm.Data[cluster.Name]; ok {
+		migration = true
+	}
+
 	// fetch ARN from the cluster to assume role for creating dependencies
 	credentialName := cluster.Spec.Provider.CredentialSecret.Name
 	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
@@ -119,6 +133,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		ClusterNamespace: cluster.Namespace,
 		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
+		Migration:        migration,
 		Region:           cluster.Spec.Provider.Region,
 		ReleaseVersion:   key.Release(cluster),
 		SecretName:       key.SecretName(cluster.Name),
