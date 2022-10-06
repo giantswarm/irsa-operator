@@ -111,16 +111,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			return err
 		}
 
-		cfConfig := &v1.ConfigMap{}
+		// kubeadmconfig only support secrets for now, therefore we need to store Cloudfront config as a secret, see
+		// https://github.com/giantswarm/cluster-api-app/blob/master/helm/cluster-api/files/bootstrap/patches/versions/v1beta1/kubeadmconfigs.bootstrap.cluster.x-k8s.io.yaml#L307-L325
+		cfConfig := &v1.Secret{}
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
 			// create new OIDC Cloudfront config
-			cfConfig := &v1.ConfigMap{
+			cfConfig := &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s.Scope.ConfigName(),
 					Namespace: s.Scope.ClusterNamespace(),
 				},
-				Data: map[string]string{
+				StringData: map[string]string{
 					"arn":                    distribution.ARN,
 					"domain":                 distribution.Domain,
 					"distributionId":         distribution.DistributionId,
@@ -130,20 +132,20 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 			if err := s.Client.Create(ctx, cfConfig); err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create OIDC cloudfront config map for cluster")
+				s.Scope.Logger.Error(err, "failed to create OIDC cloudfront secret for cluster")
 				return err
 			}
-			s.Scope.Logger.Info("Created OIDC cloudfront config map in k8s")
+			s.Scope.Logger.Info("Created OIDC cloudfront secret in k8s")
 			cfDomain = distribution.Domain
 			cfOaiId = distribution.OriginAccessIdentityId
 
 		} else if err == nil {
-			cfDomain = cfConfig.Data["domain"]
+			cfDomain = cfConfig.StringData["domain"]
 			if cfDomain == "" {
 				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront domain for cluster")
 				return err
 			}
-			cfOaiId = cfConfig.Data["originAccessIdentityId"]
+			cfOaiId = cfConfig.StringData["originAccessIdentityId"]
 			if cfDomain == "" {
 				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront OAI id for cluster")
 				return err
@@ -235,21 +237,21 @@ func (s *Service) Delete(ctx context.Context) error {
 	var cfDomain string
 	var cfDistributionId string
 	var cfOriginAccessIdentityId string
-	cfConfig := &v1.ConfigMap{}
+	cfConfig := &v1.Secret{}
 
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
-			s.Scope.Logger.Info("Configmap for OIDC cloudfront does not exist anymore, skipping")
+			s.Scope.Logger.Info("Secret for OIDC cloudfront does not exist anymore, skipping")
 			return nil
 		} else if err != nil {
 			s.Scope.Logger.Error(err, "unexpected error")
 			return err
 		}
 
-		cfDomain = cfConfig.Data["domain"]
-		cfDistributionId = cfConfig.Data["distributionId"]
-		cfOriginAccessIdentityId = cfConfig.Data["originAccessIdentityId"]
+		cfDomain = cfConfig.StringData["domain"]
+		cfDistributionId = cfConfig.StringData["distributionId"]
+		cfOriginAccessIdentityId = cfConfig.StringData["originAccessIdentityId"]
 	}
 
 	err = s.IAM.DeleteOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
