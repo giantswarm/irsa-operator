@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
@@ -77,4 +78,15 @@ func ContainsFinalizer(s []string, str string) bool {
 	}
 
 	return false
+}
+
+func GetCustomerTags(cluster *capi.Cluster) map[string]string {
+	customerTags := make(map[string]string)
+
+	for k, v := range cluster.Labels {
+		if strings.HasPrefix(k, CustomerTagLabel) {
+			customerTags[strings.Replace(k, CustomerTagLabel, "", 1)] = v
+		}
+	}
+	return customerTags
 }

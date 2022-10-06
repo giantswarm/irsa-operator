@@ -1,11 +1,10 @@
-package irsa
+package legacy
 
 import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"strings"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -15,9 +14,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/cloudfront"
@@ -29,7 +27,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-type IRSAService struct {
+type Service struct {
 	Client client.Client
 	Scope  *scope.ClusterScope
 
@@ -38,8 +36,8 @@ type IRSAService struct {
 	S3         *s3.Service
 }
 
-func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
-	return &IRSAService{
+func New(scope *scope.ClusterScope, client client.Client) *Service {
+	return &Service{
 		Scope:  scope,
 		Client: client,
 
@@ -48,51 +46,13 @@ func New(scope *scope.ClusterScope, client client.Client) *IRSAService {
 		S3:         s3.NewService(scope),
 	}
 }
-
-func (s *IRSAService) Reconcile(ctx context.Context) error {
-	var privateKey *rsa.PrivateKey
+func (s *Service) Reconcile(ctx context.Context) error {
 	var cfDomain string
 	var cfOaiId string
 
 	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
-	oidcSecret := &v1.Secret{}
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
-	if apierrors.IsNotFound(err) {
-		// create new OIDC service account secret
-		privateSignerKey, publicSignerKey, pkey, err := pkcs.GenerateKeys()
-		if err != nil {
-			return err
-		}
-
-		oidcSecret := &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      s.Scope.SecretName(),
-				Namespace: s.Scope.ClusterNamespace(),
-			},
-			StringData: map[string]string{
-				"key": privateSignerKey,
-				"pub": publicSignerKey,
-			},
-			Type: v1.SecretTypeOpaque,
-		}
-
-		if err := s.Client.Create(ctx, oidcSecret); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
-			return err
-		}
-		s.Scope.Logger.Info("Created secret signer keys in k8s")
-
-		privateKey = pkey
-	} else if err == nil {
-		// if secret already exists, parse the private key
-		privBytes := oidcSecret.Data["key"]
-		block, _ := pem.Decode(privBytes)
-		privateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return err
-		}
-	} else {
+	privateKey, err := s.ServiceAccountSecret(ctx)
+	if err != nil {
 		return err
 	}
 
@@ -133,7 +93,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	customerTags := getCustomerTags(cluster)
+	customerTags := key.GetCustomerTags(cluster)
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
@@ -267,7 +227,7 @@ func (s *IRSAService) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (s *IRSAService) Delete(ctx context.Context) error {
+func (s Service) Delete(ctx context.Context) error {
 	err := s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
@@ -370,13 +330,46 @@ func (s *IRSAService) Delete(ctx context.Context) error {
 	return nil
 }
 
-func getCustomerTags(cluster *capi.Cluster) map[string]string {
-	customerTags := make(map[string]string)
-
-	for k, v := range cluster.Labels {
-		if strings.HasPrefix(k, key.CustomerTagLabel) {
-			customerTags[strings.Replace(k, key.CustomerTagLabel, "", 1)] = v
+func (s Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, error) {
+	oidcSecret := &v1.Secret{}
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
+	if apierrors.IsNotFound(err) {
+		// create new OIDC service account secret
+		privateSignerKey, publicSignerKey, pkey, err := pkcs.GenerateKeys()
+		if err != nil {
+			return nil, err
 		}
+
+		oidcSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      s.Scope.SecretName(),
+				Namespace: s.Scope.ClusterNamespace(),
+			},
+			StringData: map[string]string{
+				"key": privateSignerKey,
+				"pub": publicSignerKey,
+			},
+			Type: v1.SecretTypeOpaque,
+		}
+
+		if err := s.Client.Create(ctx, oidcSecret); err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
+			return nil, err
+		}
+		s.Scope.Logger.Info("Created secret signer keys in k8s")
+
+		return pkey, nil
+	} else if err == nil {
+		// if secret already exists, parse the private key
+		privBytes := oidcSecret.Data["key"]
+		block, _ := pem.Decode(privBytes)
+		privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		return privateKey, nil
+	} else {
+		return nil, err
 	}
-	return customerTags
 }
