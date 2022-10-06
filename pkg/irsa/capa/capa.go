@@ -24,7 +24,6 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
-	"github.com/giantswarm/irsa-operator/pkg/pkcs"
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
@@ -60,7 +59,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	b := backoff.NewMaxRetries(20, 15*time.Second)
 
 	err = s.S3.IsBucketReady(s.Scope.BucketName())
-	// check if bucket exists
+	// Check if S3 bucket exists
 	if err != nil {
 		createBucket := func() error {
 			err := s.S3.CreateBucket(s.Scope.BucketName())
@@ -103,17 +102,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// only restrict access when IRSA is used via Cloudfront in v18 and non-China region
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to block public access")
-			return err
-		}
-	}
-
-	// Cloudfront only for non-China region and v18.x.x release or higher
-	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+	// Add Cloudfront only for non-China region
+	if !key.IsChina(s.Scope.Region()) {
 		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
@@ -172,8 +162,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// restrict access only for non-China region and v18.x.x release or higher
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+	// Update S3 policy to allow access only via Cloudfront for non-China region
+	if !key.IsChina(s.Scope.Region()) {
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
 		err = backoff.Retry(uploadPolicy, b)
 		if err != nil {
@@ -181,8 +171,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
-	// restrict access only for non-China region and v18.x.x release or higher
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+	// Block public S3 access only for non-China region
+	if !key.IsChina(s.Scope.Region()) {
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to block public access")
@@ -247,7 +237,7 @@ func (s *Service) Delete(ctx context.Context) error {
 	var cfOriginAccessIdentityId string
 	cfConfig := &v1.ConfigMap{}
 
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+	if !key.IsChina(s.Scope.Region()) {
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
 			s.Scope.Logger.Info("Configmap for OIDC cloudfront does not exist anymore, skipping")
@@ -269,24 +259,7 @@ func (s *Service) Delete(ctx context.Context) error {
 		return err
 	}
 
-	oidcSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.Scope.SecretName(),
-			Namespace: s.Scope.ClusterNamespace(),
-		},
-	}
-	err = s.Client.Delete(ctx, oidcSecret, &client.DeleteOptions{Raw: &metav1.DeleteOptions{}})
-	if apierrors.IsNotFound(err) {
-		// OIDC secret is already deleted
-		// fall through
-		s.Scope.Logger.Info("OIDC service account secret for cluster not found, skipping deletion")
-	} else if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to delete OIDC service account secret for cluster")
-		return err
-	}
-
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+	if !key.IsChina(s.Scope.Region()) {
 		err = s.Cloudfront.DisableDistribution(cfDistributionId)
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to disable cloudfront distribution for cluster")
@@ -333,44 +306,16 @@ func (s *Service) Delete(ctx context.Context) error {
 
 func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, error) {
 	oidcSecret := &v1.Secret{}
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
-	if apierrors.IsNotFound(err) {
-		// create new OIDC service account secret
-		privateSignerKey, publicSignerKey, pkey, err := pkcs.GenerateKeys()
-		if err != nil {
-			return nil, err
-		}
-
-		oidcSecret := &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      s.Scope.SecretName(),
-				Namespace: s.Scope.ClusterNamespace(),
-			},
-			StringData: map[string]string{
-				"key": privateSignerKey,
-				"pub": publicSignerKey,
-			},
-			Type: v1.SecretTypeOpaque,
-		}
-
-		if err := s.Client.Create(ctx, oidcSecret); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to create OIDC service account secret for cluster")
-			return nil, err
-		}
-		s.Scope.Logger.Info("Created secret signer keys in k8s")
-
-		return pkey, nil
-	} else if err == nil {
-		// if secret already exists, parse the private key
-		privBytes := oidcSecret.Data["key"]
-		block, _ := pem.Decode(privBytes)
-		privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, err
-		}
-		return privateKey, nil
-	} else {
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName() + "-sa"}, oidcSecret)
+	if err != nil {
+		s.Scope.Logger.Error(err, "failed to get service account secret")
 		return nil, err
 	}
+	privBytes := oidcSecret.Data["tls.key"]
+	block, _ := pem.Decode(privBytes)
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return privateKey, nil
 }

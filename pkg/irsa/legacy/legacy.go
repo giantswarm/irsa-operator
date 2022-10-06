@@ -102,15 +102,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// only restrict access when IRSA is used via Cloudfront in v18 and non-China region
-	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
-		if err != nil {
-			s.Scope.Logger.Error(err, "failed to block public access")
-			return err
-		}
-	}
-
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
 		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
