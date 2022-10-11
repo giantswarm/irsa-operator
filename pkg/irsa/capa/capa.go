@@ -102,57 +102,58 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
+	distribution := &cloudfront.Distribution{}
 	// Add Cloudfront only for non-China region
 	if !key.IsChina(s.Scope.Region()) {
-		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
+		distribution, err = s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
 			return err
 		}
+	}
 
-		// kubeadmconfig only support secrets for now, therefore we need to store Cloudfront config as a secret, see
-		// https://github.com/giantswarm/cluster-api-app/blob/master/helm/cluster-api/files/bootstrap/patches/versions/v1beta1/kubeadmconfigs.bootstrap.cluster.x-k8s.io.yaml#L307-L325
-		cfConfig := &v1.Secret{}
-		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
-		if apierrors.IsNotFound(err) {
-			// create new OIDC Cloudfront config
-			cfConfig := &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      s.Scope.ConfigName(),
-					Namespace: s.Scope.ClusterNamespace(),
-				},
-				StringData: map[string]string{
-					"arn":                    distribution.ARN,
-					"domain":                 distribution.Domain,
-					"distributionId":         distribution.DistributionId,
-					"originAccessIdentityId": distribution.OriginAccessIdentityId,
-				},
-			}
+	// kubeadmconfig only support secrets for now, therefore we need to store Cloudfront config as a secret, see
+	// https://github.com/giantswarm/cluster-api-app/blob/master/helm/cluster-api/files/bootstrap/patches/versions/v1beta1/kubeadmconfigs.bootstrap.cluster.x-k8s.io.yaml#L307-L325
+	cfConfig := &v1.Secret{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
+	if apierrors.IsNotFound(err) {
+		// create new OIDC Cloudfront config
+		cfConfig := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      s.Scope.ConfigName(),
+				Namespace: s.Scope.ClusterNamespace(),
+			},
+			StringData: map[string]string{
+				"arn":                    distribution.ARN,
+				"domain":                 distribution.Domain,
+				"distributionId":         distribution.DistributionId,
+				"originAccessIdentityId": distribution.OriginAccessIdentityId,
+			},
+		}
 
-			if err := s.Client.Create(ctx, cfConfig); err != nil {
-				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create OIDC cloudfront secret for cluster")
-				return err
-			}
-			s.Scope.Logger.Info("Created OIDC cloudfront secret in k8s")
-			cfDomain = distribution.Domain
-			cfOaiId = distribution.OriginAccessIdentityId
-
-		} else if err == nil {
-			cfDomain = cfConfig.StringData["domain"]
-			if cfDomain == "" {
-				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront domain for cluster")
-				return err
-			}
-			cfOaiId = cfConfig.StringData["originAccessIdentityId"]
-			if cfDomain == "" {
-				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront OAI id for cluster")
-				return err
-			}
-		} else {
+		if err := s.Client.Create(ctx, cfConfig); err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+			s.Scope.Logger.Error(err, "failed to create OIDC cloudfront secret for cluster")
 			return err
 		}
+		s.Scope.Logger.Info("Created OIDC cloudfront secret in k8s")
+		cfDomain = distribution.Domain
+		cfOaiId = distribution.OriginAccessIdentityId
+
+	} else if err == nil {
+		cfDomain = cfConfig.StringData["domain"]
+		if cfDomain == "" {
+			s.Scope.Logger.Error(err, "failed to get OIDC cloudfront domain for cluster")
+			return err
+		}
+		cfOaiId = cfConfig.StringData["originAccessIdentityId"]
+		if cfDomain == "" {
+			s.Scope.Logger.Error(err, "failed to get OIDC cloudfront OAI id for cluster")
+			return err
+		}
+	} else {
+		return err
 	}
 
 	uploadFiles := func() error {
