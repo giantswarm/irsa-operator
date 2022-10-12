@@ -142,12 +142,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		cfOaiId = distribution.OriginAccessIdentityId
 
 	} else if err == nil {
-		cfDomain = cfConfig.StringData["domain"]
+		data := cfConfig.Data
+		cfDomain = string(data["domain"])
 		if cfDomain == "" {
 			s.Scope.Logger.Error(err, "failed to get OIDC cloudfront domain for cluster")
 			return err
 		}
-		cfOaiId = cfConfig.StringData["originAccessIdentityId"]
+		cfOaiId = string(data["originAccessIdentityId"])
 		if cfDomain == "" {
 			s.Scope.Logger.Error(err, "failed to get OIDC cloudfront OAI id for cluster")
 			return err
@@ -250,9 +251,10 @@ func (s *Service) Delete(ctx context.Context) error {
 			return err
 		}
 
-		cfDomain = cfConfig.StringData["domain"]
-		cfDistributionId = cfConfig.StringData["distributionId"]
-		cfOriginAccessIdentityId = cfConfig.StringData["originAccessIdentityId"]
+		data := cfConfig.Data
+		cfDomain = string(data["domain"])
+		cfDistributionId = string(data["distributionId"])
+		cfOriginAccessIdentityId = string(data["originAccessIdentityId"])
 	}
 
 	err = s.IAM.DeleteOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())

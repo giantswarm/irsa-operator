@@ -26,7 +26,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,32 +69,29 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s' , ignoring CR", key.IRSAAnnotation))
-		// resource does not contain IRSA annotation, try later
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Minute * 5,
-		}, nil
-	}
-
-	// fetch the AWSClusterRole to assume role for creating dependencies
-	awsClusterRoleIdentityList := &capa.AWSClusterRoleIdentityList{}
-	err = r.List(ctx, awsClusterRoleIdentityList, client.MatchingLabels{key.ClusterNameLabel: req.Name})
+	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, awsClusterRoleIdentity)
 	if err != nil {
-		logger.Error(err, "ClusterRole does not exist")
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Minute * 5,
-		}, nil
+		if apierrors.IsNotFound(err) {
+			// fallback to "default" AWSClusterRole
+			err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "default"}, awsClusterRoleIdentity)
+			if err != nil {
+				logger.Error(err, "ClusterRole does not exist")
+				return ctrl.Result{
+					Requeue:      true,
+					RequeueAfter: time.Minute * 5,
+				}, nil
+			}
+		} else if err != nil {
+			logger.Error(err, "Unexpected error")
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 5,
+			}, nil
+		}
 	}
 
-	if len(awsClusterRoleIdentityList.Items) != 1 {
-		logger.Info(fmt.Sprintf("expected 1 AWSClusterRoleIdentity but found '%d'", len(awsClusterRoleIdentityList.Items)))
-		return reconcile.Result{}, nil
-	}
-
-	arn := awsClusterRoleIdentityList.Items[0].Spec.RoleArn
+	arn := awsClusterRoleIdentity.Spec.RoleArn
 
 	// extract AccountID from ARN
 	re := regexp.MustCompile(`[-]?\d[\d,]*[\.]?[\d{2}]*`)
