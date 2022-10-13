@@ -79,7 +79,8 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok || !key.IsV19Release(releaseVersion) {
+	_, ok := cluster.Annotations[key.IRSAAnnotation]
+	if !ok || !key.IsV19Release(releaseVersion) {
 		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s or release version is not v19.0.0 or higher', ignoring CR", key.IRSAAnnotation))
 		return ctrl.Result{
 			Requeue:      true,
