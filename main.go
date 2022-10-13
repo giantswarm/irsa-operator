@@ -48,11 +48,11 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	var onlyCAPA bool
+	var capa bool
 	var probeAddr string
 	var installation string
 
-	flag.BoolVar(&onlyCAPA, "capa", false, "Ignores GiantSwarm Legacy CRDs and only reconciles on CAPA resources.")
+	flag.BoolVar(&capa, "capa-only", false, "Ignores GiantSwarm Legacy CRDs and only reconciles CAPA resources.")
 	flag.StringVar(&installation, "installation", "", "The name of the installation.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -80,7 +80,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !onlyCAPA {
+	if !capa {
 		if err = (&controllers.LegacyClusterReconciler{
 			Client:       mgr.GetClient(),
 			Log:          ctrl.Log.WithName("legacy-controller"),

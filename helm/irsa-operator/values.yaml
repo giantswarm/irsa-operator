@@ -6,6 +6,8 @@ aws:
 installation:
   name: name
 
+capa: false
+
 project:
   branch: "[[ .Branch ]]"
   commit: "[[ .SHA ]]"

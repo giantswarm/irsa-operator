@@ -76,7 +76,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			// fallback to "default" AWSClusterRole
 			err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "default"}, awsClusterRoleIdentity)
 			if err != nil {
-				logger.Error(err, "ClusterRole does not exist")
+				logger.Error(err, "Default clusterrole does not exist")
 				return ctrl.Result{
 					Requeue:      true,
 					RequeueAfter: time.Minute * 5,
@@ -84,10 +84,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 		} else if err != nil {
 			logger.Error(err, "Unexpected error")
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: time.Minute * 5,
-			}, nil
+			return ctrl.Result{}, microerror.Mask(err)
 		}
 	}
 
