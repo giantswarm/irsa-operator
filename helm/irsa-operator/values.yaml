@@ -3,6 +3,7 @@ aws:
   secretAccessKey: secretkey
   region: region
   capa: false
+  legacy: true
 
 installation:
   name: name
