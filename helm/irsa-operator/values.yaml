@@ -2,6 +2,7 @@ aws:
   accessKeyID: accesskey
   secretAccessKey: secretkey
   region: region
+  capa: false
 
 installation:
   name: name

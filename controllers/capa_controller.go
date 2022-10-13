@@ -22,27 +22,27 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
-	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
-	"github.com/giantswarm/irsa-operator/pkg/irsa"
+	irsaCapa "github.com/giantswarm/irsa-operator/pkg/irsa/capa"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
-// LegacyClusterReconciler reconciles a Giant Swarm AWSCluster object
-type LegacyClusterReconciler struct {
+// CAPAClusterReconciler reconciles a CAPA AWSCluster object
+type CAPAClusterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
@@ -51,68 +51,44 @@ type LegacyClusterReconciler struct {
 	recorder     record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=infrastructure.giantswarm.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=infrastructure.giantswarm.io,resources=awscluster/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=infrastructure.giantswarm.io,resources=awscluster/finalizers,verbs=update
+//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
-func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
 
-	cluster := &infrastructurev1alpha3.AWSCluster{}
+	cluster := &capa.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("AWSCluster no longer exists")
-			return ctrl.Result{}, nil
-		}
+		logger.Error(err, "Cluster does not exist")
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s', ignoring CR", key.IRSAAnnotation))
-		// resource does not contain IRSA annotation, try later
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Minute * 5,
-		}, nil
-	}
-
-	// check if cluster needs to be migrated
-	cm := &v1.ConfigMap{}
-	var migration bool
-	if err := r.Get(ctx, types.NamespacedName{Name: "irsa-migration", Namespace: "giantswarm"}, cm); err != nil {
-		if errors.IsNotFound(err) {
-			// no migration needed
+	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, awsClusterRoleIdentity)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// fallback to "default" AWSClusterRole
+			err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "default"}, awsClusterRoleIdentity)
+			if err != nil {
+				logger.Error(err, "Default clusterrole does not exist")
+				return ctrl.Result{
+					Requeue:      true,
+					RequeueAfter: time.Minute * 5,
+				}, nil
+			}
 		} else if err != nil {
+			logger.Error(err, "Unexpected error")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 	}
-	if _, ok := cm.Data[cluster.Name]; ok {
-		migration = true
-	}
 
-	// fetch ARN from the cluster to assume role for creating dependencies
-	credentialName := cluster.Spec.Provider.CredentialSecret.Name
-	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
-	var credentialSecret = &v1.Secret{}
-	if err = r.Get(ctx, types.NamespacedName{Namespace: credentialNamespace, Name: credentialName}, credentialSecret); err != nil {
-		logger.Error(err, "failed to get credential secret")
-		return ctrl.Result{}, microerror.Mask(err)
-	}
-
-	secretByte, ok := credentialSecret.Data["aws.awsoperator.arn"]
-	if !ok {
-		logger.Error(err, "Unable to extract ARN from secret")
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, cluster.Name))
-
-	}
-
-	// convert secret data secretByte into string
-	arn := string(secretByte)
+	arn := awsClusterRoleIdentity.Spec.RoleArn
 
 	// extract AccountID from ARN
 	re := regexp.MustCompile(`[-]?\d[\d,]*[\.]?[\d{2}]*`)
@@ -133,8 +109,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		ClusterNamespace: cluster.Namespace,
 		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
-		Migration:        migration,
-		Region:           cluster.Spec.Provider.Region,
+		Region:           cluster.Spec.Region,
 		ReleaseVersion:   key.Release(cluster),
 		SecretName:       key.SecretName(cluster.Name),
 
@@ -146,25 +121,22 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Create IRSA service.
-	irsaService := irsa.New(clusterScope, r.Client)
+	irsaService := irsaCapa.New(clusterScope, r.Client)
 
-	if !cluster.DeletionTimestamp.IsZero() {
-		finalizers := cluster.GetFinalizers()
-		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
-			return ctrl.Result{}, nil
-		}
-
+	if cluster.DeletionTimestamp != nil {
 		err := irsaService.Delete(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
+		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+			logger.Error(err, "Cluster does not exist")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if errors.IsConflict(err) {
-			logger.Info("Failed to remove finalizer on AWSCluster CR, conflict trying to update object")
-			return ctrl.Result{}, nil
-		} else if err != nil {
+		if err != nil {
 			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -184,10 +156,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
-		if errors.IsConflict(err) {
-			logger.Info("Failed to add finalizer on AWSCluster CR, conflict trying to update object")
-			return ctrl.Result{}, nil
-		} else if err != nil {
+		if err != nil {
 			logger.Error(err, "failed to add finalizer on AWSCluster CR")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -201,13 +170,18 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *LegacyClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.recorder = mgr.GetEventRecorderFor("irsa-legacy-controller")
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha3.AWSCluster{}).
+func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	err := ctrl.NewControllerManagedBy(mgr).
+		For(&capa.AWSCluster{}).
 		Complete(r)
+	if err != nil {
+		return errors.Wrap(err, "failed setting up with a controller manager")
+	}
+
+	r.recorder = mgr.GetEventRecorderFor("irsa-capa-controller")
+	return nil
 }
 
-func (r *LegacyClusterReconciler) sendEvent(cluster *v1alpha3.AWSCluster, eventtype, reason, message string) {
-	r.recorder.Event(cluster, eventtype, reason, message)
+func (r *CAPAClusterReconciler) sendEvent(cluster *capa.AWSCluster, eventtype, reason, message string) {
+	r.recorder.Eventf(cluster, v1.EventTypeNormal, reason, message)
 }

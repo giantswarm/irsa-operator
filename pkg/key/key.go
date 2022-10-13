@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 	ReleaseLabel     = "release.giantswarm.io/version"
 
 	V18AlphaRelease = "18.0.0-alpha1"
+	V19Release      = "19.0.0"
 )
 
 func BucketName(accountID, clusterName string) string {
@@ -69,6 +71,11 @@ func IsV18Release(releaseVersion *semver.Version) bool {
 	return releaseVersion.GE(*v18AlphaVersion)
 }
 
+func IsV19Release(releaseVersion *semver.Version) bool {
+	v19, _ := semver.New(V19Release)
+	return releaseVersion.GE(*v19)
+}
+
 func ContainsFinalizer(s []string, str string) bool {
 	for _, v := range s {
 		if v == str {
@@ -77,4 +84,15 @@ func ContainsFinalizer(s []string, str string) bool {
 	}
 
 	return false
+}
+
+func GetCustomerTags(cluster *capi.Cluster) map[string]string {
+	customerTags := make(map[string]string)
+
+	for k, v := range cluster.Labels {
+		if strings.HasPrefix(k, CustomerTagLabel) {
+			customerTags[strings.Replace(k, CustomerTagLabel, "", 1)] = v
+		}
+	}
+	return customerTags
 }

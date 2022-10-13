@@ -48,9 +48,11 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var capa bool
 	var probeAddr string
 	var installation string
 
+	flag.BoolVar(&capa, "capa-only", false, "Ignores GiantSwarm Legacy CRDs and only reconciles CAPA resources.")
 	flag.StringVar(&installation, "installation", "", "The name of the installation.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -78,14 +80,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.LegacyClusterReconciler{
-		Client:       mgr.GetClient(),
-		Log:          ctrl.Log.WithName("legacy-controller"),
-		Scheme:       mgr.GetScheme(),
-		Installation: installation,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
-		os.Exit(1)
+	if !capa {
+		if err = (&controllers.LegacyClusterReconciler{
+			Client:       mgr.GetClient(),
+			Log:          ctrl.Log.WithName("legacy-controller"),
+			Scheme:       mgr.GetScheme(),
+			Installation: installation,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
+			os.Exit(1)
+		}
 	}
 	if err = (&controllers.CAPAClusterReconciler{
 		Client:       mgr.GetClient(),
