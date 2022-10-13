@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
@@ -72,9 +73,14 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s', ignoring CR", key.IRSAAnnotation))
-		// resource does not contain IRSA annotation, try later
+	releaseVersion, err := semver.New(key.Release(cluster))
+	if err != nil {
+		logger.Error(err, "Unable to extract release from AWSCluster CR")
+		return ctrl.Result{}, microerror.Mask(err)
+	}
+
+	if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok || !key.IsV19Release(releaseVersion) {
+		logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s or release version is not v19.0.0 or higher', ignoring CR", key.IRSAAnnotation))
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 5,

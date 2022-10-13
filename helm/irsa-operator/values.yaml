@@ -2,11 +2,10 @@ aws:
   accessKeyID: accesskey
   secretAccessKey: secretkey
   region: region
+  capa: false
 
 installation:
   name: name
-
-capa: false
 
 project:
   branch: "[[ .Branch ]]"

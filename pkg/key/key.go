@@ -27,6 +27,7 @@ const (
 	ReleaseLabel     = "release.giantswarm.io/version"
 
 	V18AlphaRelease = "18.0.0-alpha1"
+	V19Release      = "19.0.0"
 )
 
 func BucketName(accountID, clusterName string) string {
@@ -68,6 +69,11 @@ func ARNPrefix(region string) string {
 func IsV18Release(releaseVersion *semver.Version) bool {
 	v18AlphaVersion, _ := semver.New(V18AlphaRelease)
 	return releaseVersion.GE(*v18AlphaVersion)
+}
+
+func IsV19Release(releaseVersion *semver.Version) bool {
+	v19, _ := semver.New(V19Release)
+	return releaseVersion.GE(*v19)
 }
 
 func ContainsFinalizer(s []string, str string) bool {
