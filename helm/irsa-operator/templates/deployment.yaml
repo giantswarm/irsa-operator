@@ -33,8 +33,8 @@ spec:
           value: /home/.aws/credentials
         args:
         - "--installation={{ .Values.installation.name }}"
-        - "--capa={{ .Values.aws.capa }}"
-        - "--legacy={{ .Values.aws.legacy }}"
+        - "--capa={{ .Values.capa }}"
+        - "--legacy={{ .Values.legacy }}"
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:

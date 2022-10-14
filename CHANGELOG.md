@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Adjusting values for toggle.
+
 ## [0.8.1] - 2022-10-14
 
 ### Fixed

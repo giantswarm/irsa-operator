@@ -2,8 +2,9 @@ aws:
   accessKeyID: accesskey
   secretAccessKey: secretkey
   region: region
-  capa: false
-  legacy: true
+
+capa: false
+legacy: true
 
 installation:
   name: name
