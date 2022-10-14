@@ -27,7 +27,7 @@ const (
 	ReleaseLabel     = "release.giantswarm.io/version"
 
 	V18AlphaRelease = "18.0.0-alpha1"
-	V19Release      = "19.0.0"
+	V19AlphaRelease = "19.0.0-alpha1"
 )
 
 func BucketName(accountID, clusterName string) string {
@@ -72,7 +72,7 @@ func IsV18Release(releaseVersion *semver.Version) bool {
 }
 
 func IsV19Release(releaseVersion *semver.Version) bool {
-	v19, _ := semver.New(V19Release)
+	v19, _ := semver.New(V19AlphaRelease)
 	return releaseVersion.GE(*v19)
 }
 
