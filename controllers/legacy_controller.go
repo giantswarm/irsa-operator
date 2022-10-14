@@ -81,7 +81,9 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if !key.IsV19Release(releaseVersion) {
 		if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
-			logger.Info(fmt.Sprintf("AWSCluster CR do not have required annotation '%s' or release version is not v19.0.0 or higher, ignoring CR", key.IRSAAnnotation))
+			logger.Info(fmt.Sprintf(
+				"AWSCluster CR do not have required annotation '%s' or release version is not v19.0.0 or higher, ignoring CR",
+				key.IRSAAnnotation))
 			return ctrl.Result{
 				Requeue:      true,
 				RequeueAfter: time.Minute * 5,
@@ -188,6 +190,14 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 			logger.Error(err, "Cluster does not exist")
 			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		finalizers := cluster.GetFinalizers()
+		if key.ContainsFinalizer(finalizers, key.FinalizerName) {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 5,
+			}, nil
 		}
 
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)

@@ -154,6 +154,14 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
+		finalizers := cluster.GetFinalizers()
+		if key.ContainsFinalizer(finalizers, key.FinalizerName) {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 5,
+			}, nil
+		}
+
 		controllerutil.AddFinalizer(cluster, key.FinalizerName)
 		err = r.Update(ctx, cluster)
 		if err != nil {
