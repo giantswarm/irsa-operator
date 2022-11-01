@@ -1,10 +1,12 @@
 package key
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/cloudfront"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -13,6 +15,7 @@ const (
 	CAPIWatchFilterLabel = "cluster.x-k8s.io/watch-filter"
 	CAPAReleaseComponent = "cluster-api-provider-aws"
 	FinalizerName        = "irsa-operator.finalizers.giantswarm.io"
+
 	//TODO move it into k8smetadata
 	IRSAAnnotation = "alpha.aws.giantswarm.io/iam-roles-for-service-accounts"
 	// Upgrading existing IRSA clusters witout breaking clusters
@@ -95,4 +98,11 @@ func GetCustomerTags(cluster *capi.Cluster) map[string]string {
 		}
 	}
 	return customerTags
+}
+
+func IsEmptyCloudfrontDistribution(distribution cloudfront.Distribution) error {
+	if (cloudfront.Distribution{}) == *distribution {
+		return errors.New("empty cloudfront distribution")
+	}
+	return nil
 }

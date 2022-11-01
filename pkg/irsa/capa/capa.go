@@ -118,6 +118,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	cfConfig := &v1.Secret{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 	if apierrors.IsNotFound(err) {
+		if err := key.IsEmptyCloudfrontDistribution(distribution); err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+			s.Scope.Logger.Error(err, "cloudfront distribution cannot be nil")
+			return err
+		}
+
 		// create new OIDC Cloudfront config
 		cfConfig := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
