@@ -65,7 +65,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	cluster := &capa.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		logger.Error(err, "Cluster does not exist")
+		logger.Info("Cluster no longer exists")
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 

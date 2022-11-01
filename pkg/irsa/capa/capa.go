@@ -53,7 +53,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
 	privateKey, err := s.ServiceAccountSecret(ctx)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
+		s.Scope.Info("Service account is not ready yet, waiting ...")
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -320,7 +323,6 @@ func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, er
 	oidcSecret := &v1.Secret{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName() + "-sa"}, oidcSecret)
 	if err != nil {
-		s.Scope.Logger.Error(err, "failed to get service account secret")
 		return nil, err
 	}
 	privBytes := oidcSecret.Data["tls.key"]
