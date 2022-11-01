@@ -21,6 +21,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/cloudfront"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
@@ -114,7 +115,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		cfConfig := &v1.ConfigMap{}
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
-			if err := key.IsEmptyCloudfrontDistribution(distribution); err != nil {
+			if err := errors.IsEmptyCloudfrontDistribution(distribution); err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "cloudfront distribution cannot be nil")
 				return err
