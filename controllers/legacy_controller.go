@@ -67,7 +67,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	cluster := &infrastructurev1alpha3.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("AWSCluster no longer exists")
+			logger.Info("Cluster no longer exists")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, microerror.Mask(err)
