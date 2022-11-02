@@ -188,9 +188,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.CreateOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		return s.IAM.EnsureOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
 	}
-	err = backoff.Retry(createOIDCProvider, b)
+	n := func(err error, d time.Duration) {
+		s.Scope.Logger.Info("level", "warning", "message", fmt.Sprintf("retrying backoff in '%s' due to error", d.String()), "stack", fmt.Sprintf("%#v", err))
+	}
+	err = backoff.RetryNotify(createOIDCProvider, b, n)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create OIDC provider")
