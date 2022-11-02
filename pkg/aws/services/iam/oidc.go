@@ -32,16 +32,6 @@ func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error
 			len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
 			len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 
-			if fmt.Sprintf("https://%s", *existing.Url) != identityProviderURL {
-				fmt.Printf("url changed: was 'https://%s', want '%s'\n", *existing.Url, identityProviderURL)
-			}
-			if len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) {
-				fmt.Printf("tp changed. was '%s' want '%s'\n", *existing.ThumbprintList[0], tp)
-			}
-			if len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
-				fmt.Println("ClientID changed")
-			}
-
 			s.scope.Info("OIDCProvider needs to be replaced")
 			s.scope.Info("Deleting old OIDCProvider")
 			_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
@@ -50,7 +40,7 @@ func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error
 			}
 			s.scope.Info("Deleted old OIDCProvider")
 		} else {
-			s.scope.Info("OIDCProvider already exists")
+			s.scope.Info("OIDCProvider already exists and is up to date")
 			return nil
 		}
 	}

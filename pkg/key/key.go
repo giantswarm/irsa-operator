@@ -54,6 +54,10 @@ func AWSEndpoint(region string) string {
 	return awsEndpoint
 }
 
+func STSUrl(region string) string {
+	return fmt.Sprintf("sts.%s", AWSEndpoint(region))
+}
+
 func IsChina(region string) bool {
 	return strings.HasPrefix(region, "cn-")
 }
