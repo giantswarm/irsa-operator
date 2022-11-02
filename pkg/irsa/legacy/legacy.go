@@ -189,7 +189,15 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.EnsureOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		var identityProviderURL string
+		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
+		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+			identityProviderURL = fmt.Sprintf("https://%s", cfDomain)
+		} else {
+			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
+		}
+
+		return s.IAM.EnsureOIDCProvider(identityProviderURL, key.AWSEndpoint(s.Scope.Region()))
 	}
 	n := func(err error, d time.Duration) {
 		s.Scope.Logger.Info("level", "warning", "message", fmt.Sprintf("retrying backoff in '%s' due to error", d.String()), "stack", fmt.Sprintf("%#v", err))

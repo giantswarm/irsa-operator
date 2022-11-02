@@ -15,16 +15,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) EnsureOIDCProvider(release *semver.Version, domain, bucketName, region string) error {
-	var identityProviderURL string
-
-	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
-	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
-		identityProviderURL = fmt.Sprintf("https://%s", domain)
-	} else {
-		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
-	}
-
+func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error {
 	tp, err := caThumbPrint(identityProviderURL)
 	if err != nil {
 		return err
@@ -39,7 +30,7 @@ func (s *Service) EnsureOIDCProvider(release *semver.Version, domain, bucketName
 		// Check if values are up to date.
 		if *existing.Url != identityProviderURL ||
 			len(existing.ThumbprintList) != 1 || *existing.ThumbprintList[0] != tp ||
-			len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != fmt.Sprintf("sts.%s", key.AWSEndpoint(region)) {
+			len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 
 			if *existing.Url != identityProviderURL {
 				fmt.Printf("url changed: was %q, is %q", *existing.Url, identityProviderURL)
@@ -47,7 +38,7 @@ func (s *Service) EnsureOIDCProvider(release *semver.Version, domain, bucketName
 			if len(existing.ThumbprintList) != 1 || *existing.ThumbprintList[0] != tp {
 				fmt.Println("tp changed")
 			}
-			if len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != fmt.Sprintf("sts.%s", key.AWSEndpoint(region)) {
+			if len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 				fmt.Println("ClientID changed")
 			}
 
@@ -67,7 +58,7 @@ func (s *Service) EnsureOIDCProvider(release *semver.Version, domain, bucketName
 	i := &iam.CreateOpenIDConnectProviderInput{
 		Url:            aws.String(identityProviderURL),
 		ThumbprintList: []*string{aws.String(tp)},
-		ClientIDList:   []*string{aws.String(fmt.Sprintf("sts.%s", key.AWSEndpoint(region)))},
+		ClientIDList:   []*string{aws.String(clientID)},
 	}
 
 	_, err = s.Client.CreateOpenIDConnectProvider(i)
