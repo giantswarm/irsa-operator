@@ -9,6 +9,7 @@ workflows:
       - architect/go-build:
           name: go-build
           binary: irsa-operator
+          resource_class: large
           filters:
             tags:
               only: /^v.*/
@@ -58,6 +59,7 @@ workflows:
           chart: "irsa-operator"
           requires:
             - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
           # Needed to trigger job also on git tag.
           filters:
             tags:
