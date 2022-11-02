@@ -32,11 +32,11 @@ func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error
 			len(existing.ThumbprintList) != 1 || *existing.ThumbprintList[0] != tp ||
 			len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 
-			if *existing.Url != identityProviderURL {
-				fmt.Printf("url changed: was %q, is %q", *existing.Url, identityProviderURL)
+			if fmt.Sprintf("https://%s", *existing.Url) != identityProviderURL {
+				fmt.Printf("url changed: was 'https://%s', want '%s'\n", *existing.Url, identityProviderURL)
 			}
 			if len(existing.ThumbprintList) != 1 || *existing.ThumbprintList[0] != tp {
-				fmt.Println("tp changed")
+				fmt.Printf("tp changed. was '%s' want '%s'\n", *existing.ThumbprintList[0], tp)
 			}
 			if len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 				fmt.Println("ClientID changed")
