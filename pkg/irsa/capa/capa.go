@@ -195,7 +195,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.CreateOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		return s.IAM.EnsureOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
