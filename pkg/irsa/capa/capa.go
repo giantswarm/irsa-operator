@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -195,7 +196,15 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.CreateOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		var identityProviderURL string
+		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
+		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+			identityProviderURL = fmt.Sprintf("https://%s", cfDomain)
+		} else {
+			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
+		}
+
+		return s.IAM.EnsureOIDCProvider(identityProviderURL, key.STSUrl(s.Scope.Region()))
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Changed
+
+- Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
+
 ### Added
 
 - Add `irsa-operator` to capa-app-collection.
