@@ -80,4 +80,18 @@ workflows:
               ignore: /.*/
             tags:
               only: /^v.*/
+      - architect/push-to-app-collection:
+          context: architect
+          name: push-to-capa-app-collection
+          app_name: "irsa-operator"
+          app_collection_repo: "capa-app-collection"
+          requires:
+            - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
+            - push-irsa-operator-to-app-catalog
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
 
