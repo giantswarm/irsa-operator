@@ -57,7 +57,8 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 	var existing *cloudfront.Distribution
 	var etag *string
 	distributionNeedsUpdate := false
-	tagsNeedUpdate := false
+	tagsToBeAdded := map[string]string{}
+	tagsToBeRemoved := make([]string, 0)
 
 	if d != nil {
 		s.scope.Info("Cloudfront distribution already exists")
@@ -81,9 +82,9 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 		}
 
 		distributionNeedsUpdate = s.distributionNeedsUpdate(result.Distribution, config)
-		tagsNeedUpdate = tagsNeedUpdating(tags.Tags, s.internalTags(), config)
+		tagsToBeAdded, tagsToBeRemoved = tagsNeedUpdating(tags.Tags, s.internalTags(), config)
 
-		if !distributionNeedsUpdate && !tagsNeedUpdate {
+		if !distributionNeedsUpdate && len(tagsToBeAdded)+len(tagsToBeRemoved) == 0 {
 			s.scope.Info("Distribution is up to date")
 			return d, nil
 		}
@@ -189,18 +190,38 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 			return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
 		}
 
-		if tagsNeedUpdate {
-			s.scope.Info("Updating tags")
+		if len(tagsToBeAdded) > 0 {
+			s.scope.Info(fmt.Sprintf("Adding %d tags", len(tagsToBeAdded)))
 			_, err := s.Client.TagResource(&cloudfront.TagResourceInput{
 				Resource: existing.ARN,
 				Tags:     distributionConfigWithTags.Tags,
 			})
 			if err != nil {
-				s.scope.Error(err, "Error updating cloudfront tags")
+				s.scope.Error(err, "Error adding cloudfront tags")
 				return nil, err
 			}
 
-			s.scope.Info("Updated tags")
+			s.scope.Info("Added tags")
+		}
+
+		if len(tagsToBeRemoved) > 0 {
+			keys := make([]*string, 0)
+			for _, k := range tagsToBeRemoved {
+				keys = append(keys, aws.String(k))
+			}
+			s.scope.Info(fmt.Sprintf("Deleting %d tags", len(keys)))
+			_, err := s.Client.UntagResource(&cloudfront.UntagResourceInput{
+				Resource: existing.ARN,
+				TagKeys: &cloudfront.TagKeys{
+					Items: keys,
+				},
+			})
+			if err != nil {
+				s.scope.Error(err, "Error deleting cloudfront tags")
+				return nil, err
+			}
+
+			s.scope.Info("Tags deleted")
 		}
 
 		return &Distribution{ARN: *existing.ARN, DistributionId: *existing.Id, Domain: *existing.DomainName, OriginAccessIdentityId: oaiId}, nil
@@ -309,17 +330,18 @@ func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution,
 }
 
 // tagsNeedUpdating compares current tags in the cloudfront distribution with default tags and customer tags
-// and returns true when the tags need to be updated.
-func tagsNeedUpdating(tags *cloudfront.Tags, internalTags map[string]string, config DistributionConfig) bool {
-	if tags == nil {
-		return true
-	}
+// and returns two map with tags to be added and tags to be removed
+func tagsNeedUpdating(tags *cloudfront.Tags, internalTags map[string]string, config DistributionConfig) (tagsToBeAdded map[string]string, tagsToBeRemoved []string) {
+	tagsToBeAdded = make(map[string]string, 0)
+	tagsToBeRemoved = make([]string, 0)
 
 	desiredTags := map[string]string{}
 	currentTags := map[string]string{}
 
-	for _, tag := range tags.Items {
-		currentTags[*tag.Key] = *tag.Value
+	if tags != nil {
+		for _, tag := range tags.Items {
+			currentTags[*tag.Key] = *tag.Value
+		}
 	}
 
 	for k, v := range config.CustomerTags {
@@ -329,7 +351,19 @@ func tagsNeedUpdating(tags *cloudfront.Tags, internalTags map[string]string, con
 		desiredTags[k] = v
 	}
 
-	return !reflect.DeepEqual(currentTags, desiredTags)
+	for k, v := range desiredTags {
+		if val, found := currentTags[k]; !found || val != v {
+			tagsToBeAdded[k] = v
+		}
+	}
+
+	for k, _ := range currentTags {
+		if _, found := desiredTags[k]; !found {
+			tagsToBeRemoved = append(tagsToBeRemoved, k)
+		}
+	}
+
+	return
 }
 
 func (s *Service) internalTags() map[string]string {

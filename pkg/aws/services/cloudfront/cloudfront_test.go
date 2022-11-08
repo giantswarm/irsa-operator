@@ -2,6 +2,7 @@ package cloudfront
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -122,7 +123,8 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 		name         string
 		existing     *cloudfront.Tags
 		customerTags map[string]string
-		want         bool
+		add          map[string]string
+		remove       []string
 	}{
 		{
 			name: "Internal tags present, no customer tags",
@@ -133,7 +135,8 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 				{Key: aws.String("giantswarm.io/installation"), Value: aws.String(internalTags["giantswarm.io/installation"])},
 			}},
 			customerTags: map[string]string{},
-			want:         false,
+			add:          map[string]string{},
+			remove:       []string{},
 		},
 		{
 			name: "Tags unchanged",
@@ -147,7 +150,8 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 			customerTags: map[string]string{
 				"customertag1": "customertagvalue1",
 			},
-			want: false,
+			add:    map[string]string{},
+			remove: []string{},
 		},
 		{
 			name: "Default tags missing",
@@ -157,7 +161,10 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 				{Key: aws.String(fmt.Sprintf("kubernetes.io/cluster/%s", internalTags["giantswarm.io/cluster"])), Value: aws.String("owned")},
 			}},
 			customerTags: map[string]string{},
-			want:         true,
+			add: map[string]string{
+				"giantswarm.io/installation": installation,
+			},
+			remove: []string{},
 		},
 		{
 			name: "Customer tags missing",
@@ -170,7 +177,10 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 			customerTags: map[string]string{
 				"customertag1": "customertagvalue1",
 			},
-			want: true,
+			add: map[string]string{
+				"customertag1": "customertagvalue1",
+			},
+			remove: []string{},
 		},
 		{
 			name: "Customer tags removed",
@@ -182,7 +192,10 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 				{Key: aws.String("customertag1"), Value: aws.String("customertagvalue1")},
 			}},
 			customerTags: map[string]string{},
-			want:         true,
+			add:          map[string]string{},
+			remove: []string{
+				"customertag1",
+			},
 		},
 		{
 			name: "Customer tags changed",
@@ -196,7 +209,10 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 			customerTags: map[string]string{
 				"customertag1": "changed",
 			},
-			want: true,
+			add: map[string]string{
+				"customertag1": "changed",
+			},
+			remove: []string{},
 		},
 		{
 			name: "Default tags changed",
@@ -207,13 +223,20 @@ func TestService_tagsNeedUpdating(t *testing.T) {
 				{Key: aws.String("giantswarm.io/installation"), Value: aws.String("CHANGED")},
 			}},
 			customerTags: map[string]string{},
-			want:         true,
+			add: map[string]string{
+				"giantswarm.io/installation": installation,
+			},
+			remove: []string{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tagsNeedUpdating(tt.existing, internalTags, DistributionConfig{CustomerTags: tt.customerTags}); got != tt.want {
-				t.Errorf("tagsNeedUpdating() = %v, want %v", got, tt.want)
+			add, remove := tagsNeedUpdating(tt.existing, internalTags, DistributionConfig{CustomerTags: tt.customerTags})
+			if !reflect.DeepEqual(add, tt.add) {
+				t.Errorf("tagsNeedUpdating() Wanted tagsToBeAdded to be %v, was %v", tt.add, add)
+			}
+			if !reflect.DeepEqual(remove, tt.remove) {
+				t.Errorf("tagsNeedUpdating() Wanted tagsToBeRemoved to be %v, was %v", tt.remove, remove)
 			}
 		})
 	}
