@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-
 ### Changed
 
 - Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
+- Improve `cloudfront` service in order to update the cloudfront distribution on AWS when any config is changed.
 
 ### Added
 

@@ -106,7 +106,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), customerTags)
+		distribution, err := s.Cloudfront.CreateDistribution(s.Scope.AccountID(), nil, "", customerTags)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")

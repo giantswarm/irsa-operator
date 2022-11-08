@@ -2,6 +2,7 @@ package cloudfront
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -37,12 +38,8 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
-func (s *Service) CreateDistribution(accountID string, certificateArn string, customerTags map[string]string) (*Distribution, error) {
+func (s *Service) CreateDistribution(accountID string, aliases []*string, certificateArn string, customerTags map[string]string) (*Distribution, error) {
 	s.scope.Info("Ensuring cloudfront distribution")
-
-	aliases := []*string{
-		aws.String(key.CloudFrontAlias(s.scope.ClusterName(), s.scope.Installation(), s.scope.Region())),
-	}
 
 	// Check if distribution already exists.
 	d, err := s.findDistribution()
@@ -68,15 +65,31 @@ func (s *Service) CreateDistribution(accountID string, certificateArn string, cu
 		etag = result.ETag
 
 		changed := false
-		if result.Distribution.DistributionConfig.Aliases == nil ||
-			len(result.Distribution.DistributionConfig.Aliases.Items) != 1 ||
-			*result.Distribution.DistributionConfig.Aliases.Items[0] != *aliases[0] {
+		if (result.Distribution.DistributionConfig.Aliases == nil && aliases != nil) ||
+			(result.Distribution.DistributionConfig.Aliases != nil && aliases == nil) {
 			s.scope.Info("Distribution aliases need to be updated")
 			changed = true
+		} else {
+			// desired and current aliases are slices with the same size, but might still be different.
+			currentAliases := make([]string, 0)
+			desiredAliases := make([]string, 0)
+
+			for _, alias := range result.Distribution.DistributionConfig.Aliases.Items {
+				currentAliases = append(currentAliases, *alias)
+			}
+
+			for _, alias := range aliases {
+				desiredAliases = append(desiredAliases, *alias)
+			}
+
+			if !reflect.DeepEqual(currentAliases, desiredAliases) {
+				s.scope.Info("Distribution aliases need to be updated")
+				changed = true
+			}
 		}
 
-		if result.Distribution.DistributionConfig.ViewerCertificate == nil ||
-			result.Distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn == nil ||
+		if (result.Distribution.DistributionConfig.ViewerCertificate == nil && certificateArn != "") ||
+			(result.Distribution.DistributionConfig.ViewerCertificate != nil && result.Distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn == nil && certificateArn != "") ||
 			*result.Distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != certificateArn {
 			s.scope.Info("Distribution viewer certificate needs to be updated")
 			changed = true
@@ -129,11 +142,14 @@ func (s *Service) CreateDistribution(accountID string, certificateArn string, cu
 				Quantity:        aws.Int64(0),
 			},
 		},
-		ViewerCertificate: &cloudfront.ViewerCertificate{
+	}
+
+	if certificateArn != "" {
+		distributionConfig.ViewerCertificate = &cloudfront.ViewerCertificate{
 			ACMCertificateArn:      aws.String(certificateArn),
 			MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
 			SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
-		},
+		}
 	}
 
 	distributionConfigWithTags := &cloudfront.DistributionConfigWithTags{
