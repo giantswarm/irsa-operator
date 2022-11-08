@@ -167,6 +167,8 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 		if distributionNeedsUpdate {
 			// Update existing distribution.
 
+			s.scope.Info("Updating distribution")
+
 			// Take the existing distributionConfig (with all defaulting happened on AWS side) and override with our desired settings.
 			dc := existing.DistributionConfig
 			dc.Aliases = distributionConfigWithTags.DistributionConfig.Aliases
@@ -182,10 +184,13 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 				return nil, err
 			}
 
+			s.scope.Info("Updated distribution")
+
 			return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
 		}
 
 		if tagsNeedUpdate {
+			s.scope.Info("Updating tags")
 			_, err := s.Client.TagResource(&cloudfront.TagResourceInput{
 				Resource: existing.ARN,
 				Tags:     distributionConfigWithTags.Tags,
@@ -194,6 +199,8 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 				s.scope.Error(err, "Error updating cloudfront tags")
 				return nil, err
 			}
+
+			s.scope.Info("Updated tags")
 		}
 
 		return &Distribution{ARN: *existing.ARN, DistributionId: *existing.Id, Domain: *existing.DomainName, OriginAccessIdentityId: oaiId}, nil
