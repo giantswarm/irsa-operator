@@ -2,10 +2,12 @@ package cloudfront
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
+	"github.com/giantswarm/microerror"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
@@ -35,64 +37,124 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
-func (s *Service) CreateDistribution(accountID string, customerTags map[string]string) (*Distribution, error) {
+func (s *Service) CreateDistribution(accountID string, certificateArn string, customerTags map[string]string) (*Distribution, error) {
+	s.scope.Info("Ensuring cloudfront distribution")
+
+	aliases := []*string{
+		aws.String(key.CloudFrontAlias(s.scope.ClusterName(), s.scope.Installation(), s.scope.Region())),
+	}
+
+	// Check if distribution already exists.
+	d, err := s.findDistribution()
+	if err != nil {
+		s.scope.Error(err, "Error checking if cloudfront distribution already exists")
+		return nil, err
+	}
+
+	var existing *cloudfront.Distribution
+	var etag *string
+
+	if d != nil {
+		s.scope.Info("Cloudfront distribution already exists")
+
+		// Check if distribution is up to date.
+		result, err := s.Client.GetDistribution(&cloudfront.GetDistributionInput{Id: aws.String(d.DistributionId)})
+		if err != nil {
+			s.scope.Error(err, "Error checking if cloudfront distribution is up to date")
+			return nil, err
+		}
+
+		existing = result.Distribution
+		etag = result.ETag
+
+		changed := false
+		if result.Distribution.DistributionConfig.Aliases == nil ||
+			len(result.Distribution.DistributionConfig.Aliases.Items) != 1 ||
+			*result.Distribution.DistributionConfig.Aliases.Items[0] != *aliases[0] {
+			s.scope.Info("Distribution aliases need to be updated")
+			changed = true
+		}
+
+		if result.Distribution.DistributionConfig.ViewerCertificate == nil ||
+			result.Distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn == nil ||
+			*result.Distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != certificateArn {
+			s.scope.Info("Distribution viewer certificate needs to be updated")
+			changed = true
+		}
+
+		if !changed {
+			s.scope.Info("Distribution is up to date")
+			return d, nil
+		}
+	}
+
 	oaiId, err := s.CreateOriginAccessIdentity()
 	if err != nil {
 		s.scope.Error(err, "Error creating cloudfront origin access identity")
 		return nil, err
 	}
-	i := &cloudfront.CreateDistributionWithTagsInput{
-		DistributionConfigWithTags: &cloudfront.DistributionConfigWithTags{
-			DistributionConfig: &cloudfront.DistributionConfig{
-				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
-				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
-				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
-					// AWS managed cache policy id, caching is disabled for the distribution.
-					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
-					TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-					ViewerProtocolPolicy: aws.String("redirect-to-https"),
-				},
-				Restrictions: &cloudfront.Restrictions{
-					GeoRestriction: &cloudfront.GeoRestriction{
-						RestrictionType: aws.String("none"),
-						Quantity:        aws.Int64(0),
+
+	distributionConfig := &cloudfront.DistributionConfig{
+		Aliases: &cloudfront.Aliases{
+			Items:    aliases,
+			Quantity: aws.Int64(int64(len(aliases))),
+		},
+		CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
+		Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
+		DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
+			// AWS managed cache policy id, caching is disabled for the distribution.
+			CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
+			TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+			ViewerProtocolPolicy: aws.String("redirect-to-https"),
+		},
+		Enabled: aws.Bool(true),
+		Origins: &cloudfront.Origins{
+			Items: []*cloudfront.Origin{
+				{
+					Id:         aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+					DomainName: aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+					OriginShield: &cloudfront.OriginShield{
+						Enabled: aws.Bool(false),
 					},
-				},
-				Enabled: aws.Bool(true),
-				Origins: &cloudfront.Origins{
-					Items: []*cloudfront.Origin{
-						{
-							Id:         aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-							DomainName: aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-							OriginShield: &cloudfront.OriginShield{
-								Enabled: aws.Bool(false),
-							},
-							S3OriginConfig: &cloudfront.S3OriginConfig{
-								OriginAccessIdentity: aws.String(fmt.Sprintf("origin-access-identity/cloudfront/%s", oaiId)),
-							},
-						},
+					S3OriginConfig: &cloudfront.S3OriginConfig{
+						OriginAccessIdentity: aws.String(fmt.Sprintf("origin-access-identity/cloudfront/%s", oaiId)),
 					},
-					Quantity: aws.Int64(1),
 				},
 			},
-			Tags: &cloudfront.Tags{
-				Items: []*cloudfront.Tag{
-					{
-						Key:   aws.String(key.S3TagOrganization),
-						Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
-					},
-					{
-						Key:   aws.String(key.S3TagCluster),
-						Value: aws.String(s.scope.ClusterName()),
-					},
-					{
-						Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
-						Value: aws.String("owned"),
-					},
-					{
-						Key:   aws.String(key.S3TagInstallation),
-						Value: aws.String(s.scope.Installation()),
-					},
+			Quantity: aws.Int64(1),
+		},
+		Restrictions: &cloudfront.Restrictions{
+			GeoRestriction: &cloudfront.GeoRestriction{
+				RestrictionType: aws.String("none"),
+				Quantity:        aws.Int64(0),
+			},
+		},
+		ViewerCertificate: &cloudfront.ViewerCertificate{
+			ACMCertificateArn:      aws.String(certificateArn),
+			MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
+			SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
+		},
+	}
+
+	distributionConfigWithTags := &cloudfront.DistributionConfigWithTags{
+		DistributionConfig: distributionConfig,
+		Tags: &cloudfront.Tags{
+			Items: []*cloudfront.Tag{
+				{
+					Key:   aws.String(key.S3TagOrganization),
+					Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
+				},
+				{
+					Key:   aws.String(key.S3TagCluster),
+					Value: aws.String(s.scope.ClusterName()),
+				},
+				{
+					Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
+					Value: aws.String("owned"),
+				},
+				{
+					Key:   aws.String(key.S3TagInstallation),
+					Value: aws.String(s.scope.Installation()),
 				},
 			},
 		},
@@ -103,24 +165,91 @@ func (s *Service) CreateDistribution(accountID string, customerTags map[string]s
 			Key:   aws.String(k),
 			Value: aws.String(v),
 		}
-		i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
+		distributionConfigWithTags.Tags.Items = append(distributionConfigWithTags.Tags.Items, tag)
 	}
 
-	o, err := s.Client.CreateDistributionWithTags(i)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case cloudfront.ErrCodeDistributionAlreadyExists:
-				s.scope.Info("Cloudfront distribution already exists, ignoring creation")
-				return nil, nil
+	i := &cloudfront.CreateDistributionWithTagsInput{DistributionConfigWithTags: distributionConfigWithTags}
+
+	if existing != nil {
+		// Update existing distribution.
+
+		// Take the existing distributionConfig (with all defaulting happened on AWS side) and override with our desired settings.
+		dc := existing.DistributionConfig
+		dc.Aliases = distributionConfig.Aliases
+		dc.ViewerCertificate = distributionConfig.ViewerCertificate
+
+		o, err := s.Client.UpdateDistribution(&cloudfront.UpdateDistributionInput{
+			DistributionConfig: dc,
+			Id:                 aws.String(d.DistributionId),
+			IfMatch:            etag,
+		})
+		if err != nil {
+			s.scope.Error(err, "Error updating cloudfront distribution")
+			return nil, err
+		}
+
+		return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
+	} else {
+		// Create new distribution.
+		o, err := s.Client.CreateDistributionWithTags(i)
+		if err != nil {
+			s.scope.Error(err, "Error creating cloudfront distribution")
+			return nil, err
+		}
+		s.scope.Info("Created cloudfront distribution")
+
+		return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
+	}
+}
+
+func (s *Service) findDistribution() (*Distribution, error) {
+	// Check if distribution already exists
+	var err error
+	var output *cloudfront.ListDistributionsOutput
+
+	// Marker is the way AWS API performs pagination over results.
+	// If Marker is not nil, there is another page of results to be requested.
+	// If output is nil, means we have to request the very first page of results.
+	for output == nil || output.DistributionList.Marker != nil {
+		var marker *string
+		if output != nil && output.DistributionList != nil {
+			marker = output.DistributionList.Marker
+		}
+		output, err = s.Client.ListDistributions(&cloudfront.ListDistributionsInput{Marker: marker})
+		if err != nil {
+			return nil, microerror.Mask(err)
+		}
+
+		if len(output.DistributionList.Items) == 0 {
+			return nil, nil
+		}
+
+		for _, d := range output.DistributionList.Items {
+			// There are no tags in this API response, so we have to match on the Comment :(
+			if *d.Comment == key.CloudFrontDistributionComment(s.scope.ClusterName()) {
+				// This is something like origin-access-identity/cloudfront/E2IB68Y7SJQAKJ
+				fullId := *d.Origins.Items[0].S3OriginConfig.OriginAccessIdentity
+
+				tokens := strings.Split(fullId, "/")
+				if len(tokens) != 3 {
+					s.scope.Error(invalidOriginAccessIdentity, "Unexpected format for the Cloud Front S3OriginConfig OriginAccessIdentity field")
+					return nil, microerror.Mask(err)
+				}
+
+				// We just want the final ID
+				oaID := tokens[2]
+
+				return &Distribution{
+					ARN:                    *d.ARN,
+					DistributionId:         *d.Id,
+					Domain:                 *d.DomainName,
+					OriginAccessIdentityId: oaID,
+				}, nil
 			}
 		}
-		s.scope.Error(err, "Error creating cloudfront distribution")
-		return nil, err
 	}
-	s.scope.Info("Created cloudfront distribution")
 
-	return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
+	return nil, nil
 }
 
 func (s *Service) DisableDistribution(distributionId string) error {
