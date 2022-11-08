@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -21,6 +22,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/cloudfront"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
+	"github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
@@ -114,6 +116,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		cfConfig := &v1.ConfigMap{}
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
+			if err := errors.IsEmptyCloudfrontDistribution(distribution); err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "cloudfront distribution cannot be nil")
+				return err
+			}
+
 			// create new OIDC Cloudfront config
 			cfConfig := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -181,9 +189,20 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		return s.IAM.CreateOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.BucketName(), s.Scope.Region())
+		var identityProviderURL string
+		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
+		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+			identityProviderURL = fmt.Sprintf("https://%s", cfDomain)
+		} else {
+			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
+		}
+
+		return s.IAM.EnsureOIDCProvider(identityProviderURL, key.STSUrl(s.Scope.Region()))
 	}
-	err = backoff.Retry(createOIDCProvider, b)
+	n := func(err error, d time.Duration) {
+		s.Scope.Logger.Info("level", "warning", "message", fmt.Sprintf("retrying backoff in '%s' due to error", d.String()), "stack", fmt.Sprintf("%#v", err))
+	}
+	err = backoff.RetryNotify(createOIDCProvider, b, n)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create OIDC provider")

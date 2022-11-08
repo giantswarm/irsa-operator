@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  architect: giantswarm/architect@4.13.0
+  architect: giantswarm/architect@4.25.3
 
 workflows:
   build:
@@ -9,6 +9,7 @@ workflows:
       - architect/go-build:
           name: go-build
           binary: irsa-operator
+          resource_class: large
           filters:
             tags:
               only: /^v.*/
@@ -58,6 +59,7 @@ workflows:
           chart: "irsa-operator"
           requires:
             - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
           # Needed to trigger job also on git tag.
           filters:
             tags:
@@ -72,6 +74,20 @@ workflows:
             - push-irsa-operator-to-quay
             - push-irsa-operator-to-docker
             - push-irsa-operator-to-aliyun
+            - push-irsa-operator-to-app-catalog
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+      - architect/push-to-app-collection:
+          context: architect
+          name: push-to-capa-app-collection
+          app_name: "irsa-operator"
+          app_collection_repo: "capa-app-collection"
+          requires:
+            - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
             - push-irsa-operator-to-app-catalog
           filters:
             branches:

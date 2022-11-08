@@ -6,6 +6,7 @@ var (
 	name        = "irsa-operator"
 	source      = "https://github.com/giantswarm/irsa-operator"
 	version     = "0.8.4-dev"
+	version     = "0.8.4"
 )
 
 func Description() string {
