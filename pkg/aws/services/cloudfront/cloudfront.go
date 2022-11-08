@@ -292,7 +292,7 @@ func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution,
 
 	if (distribution.DistributionConfig.ViewerCertificate == nil && config.CertificateArn != "") ||
 		(distribution.DistributionConfig.ViewerCertificate != nil && distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn == nil && config.CertificateArn != "") ||
-		(distribution.DistributionConfig.ViewerCertificate != nil && *distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != config.CertificateArn) {
+		(distribution.DistributionConfig.ViewerCertificate != nil && distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != nil && *distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != config.CertificateArn) {
 		s.scope.Info("Distribution viewer certificate needs to be updated")
 		changed = true
 	}
