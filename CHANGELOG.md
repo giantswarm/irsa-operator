@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Send metrics in case S3 objects cannot be uploaded.
 - Add `irsa-operator` to capa-app-collection.
 
+### Fixed
+
+- Fix detection of v19 and v18 releases.
+
 ## [0.8.4] - 2022-11-02
 
 ### Fixed
