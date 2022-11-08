@@ -357,7 +357,7 @@ func tagsNeedUpdating(tags *cloudfront.Tags, internalTags map[string]string, con
 		}
 	}
 
-	for k, _ := range currentTags {
+	for k := range currentTags {
 		if _, found := desiredTags[k]; !found {
 			tagsToBeRemoved = append(tagsToBeRemoved, k)
 		}
