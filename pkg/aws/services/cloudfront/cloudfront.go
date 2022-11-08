@@ -266,7 +266,8 @@ func (s *Service) findDistribution() (*Distribution, error) {
 func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution, config DistributionConfig) bool {
 	changed := false
 	if (distribution.DistributionConfig.Aliases == nil && config.Aliases != nil) ||
-		(distribution.DistributionConfig.Aliases != nil && config.Aliases == nil) {
+		(distribution.DistributionConfig.Aliases != nil && distribution.DistributionConfig.Aliases.Items != nil && config.Aliases == nil) ||
+		(distribution.DistributionConfig.Aliases != nil && distribution.DistributionConfig.Aliases.Items != nil && config.Aliases != nil && len(distribution.DistributionConfig.Aliases.Items) != len(config.Aliases)) {
 		s.scope.Info("Distribution Aliases need to be updated")
 		changed = true
 	} else {
