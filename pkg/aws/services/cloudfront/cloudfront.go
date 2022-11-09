@@ -121,7 +121,6 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	if config.CertificateArn == "" {
 		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.ACMCertificateArn = nil
 		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.SetCertificate("")
-		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.SetCertificateSource("")
 	} else {
 		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.SetACMCertificateArn(config.CertificateArn)
 	}
