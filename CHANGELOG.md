@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2022-11-09
+
 ### Fixed
 
 - Limit retries
@@ -163,7 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/giantswarm/irsa-operator/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/giantswarm/irsa-operator/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/giantswarm/irsa-operator/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/giantswarm/irsa-operator/compare/v0.8.1...v0.8.2
