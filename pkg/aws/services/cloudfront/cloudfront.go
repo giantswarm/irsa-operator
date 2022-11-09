@@ -44,7 +44,7 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
-func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, error) {
+func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, error) {
 	s.scope.Info("Ensuring cloudfront distribution")
 
 	// Check if distribution already exists.
@@ -96,50 +96,52 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 		return nil, err
 	}
 
-	distributionConfigWithTags := &cloudfront.DistributionConfigWithTags{
-		DistributionConfig: &cloudfront.DistributionConfig{
-			Aliases: &cloudfront.Aliases{
-				Items:    config.Aliases,
-				Quantity: aws.Int64(int64(len(config.Aliases))),
-			},
-			CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
-			Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
-			DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
-				// AWS managed cache policy id, caching is disabled for the distribution.
-				CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
-				TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-				ViewerProtocolPolicy: aws.String("redirect-to-https"),
-			},
-			Enabled: aws.Bool(true),
-			Origins: &cloudfront.Origins{
-				Items: []*cloudfront.Origin{
-					{
-						Id:         aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-						DomainName: aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
-						OriginShield: &cloudfront.OriginShield{
-							Enabled: aws.Bool(false),
-						},
-						S3OriginConfig: &cloudfront.S3OriginConfig{
-							OriginAccessIdentity: aws.String(fmt.Sprintf("origin-access-identity/cloudfront/%s", oaiId)),
+	i := &cloudfront.CreateDistributionWithTagsInput{
+		DistributionConfigWithTags: &cloudfront.DistributionConfigWithTags{
+			DistributionConfig: &cloudfront.DistributionConfig{
+				Aliases: &cloudfront.Aliases{
+					Items:    config.Aliases,
+					Quantity: aws.Int64(int64(len(config.Aliases))),
+				},
+				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
+				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
+				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
+					// AWS managed cache policy id, caching is disabled for the distribution.
+					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
+					TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+					ViewerProtocolPolicy: aws.String("redirect-to-https"),
+				},
+				Enabled: aws.Bool(true),
+				Origins: &cloudfront.Origins{
+					Items: []*cloudfront.Origin{
+						{
+							Id:         aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+							DomainName: aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
+							OriginShield: &cloudfront.OriginShield{
+								Enabled: aws.Bool(false),
+							},
+							S3OriginConfig: &cloudfront.S3OriginConfig{
+								OriginAccessIdentity: aws.String(fmt.Sprintf("origin-access-identity/cloudfront/%s", oaiId)),
+							},
 						},
 					},
+					Quantity: aws.Int64(1),
 				},
-				Quantity: aws.Int64(1),
-			},
-			Restrictions: &cloudfront.Restrictions{
-				GeoRestriction: &cloudfront.GeoRestriction{
-					RestrictionType: aws.String("none"),
-					Quantity:        aws.Int64(0),
+				Restrictions: &cloudfront.Restrictions{
+					GeoRestriction: &cloudfront.GeoRestriction{
+						RestrictionType: aws.String("none"),
+						Quantity:        aws.Int64(0),
+					},
 				},
 			},
-		},
-		Tags: &cloudfront.Tags{
-			Items: []*cloudfront.Tag{},
+			Tags: &cloudfront.Tags{
+				Items: []*cloudfront.Tag{},
+			},
 		},
 	}
 
 	if config.CertificateArn != "" {
-		distributionConfigWithTags.DistributionConfig.ViewerCertificate = &cloudfront.ViewerCertificate{
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate = &cloudfront.ViewerCertificate{
 			ACMCertificateArn:      aws.String(config.CertificateArn),
 			MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
 			SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
@@ -151,7 +153,7 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 			Key:   aws.String(k),
 			Value: aws.String(v),
 		}
-		distributionConfigWithTags.Tags.Items = append(distributionConfigWithTags.Tags.Items, tag)
+		i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 	}
 
 	for k, v := range config.CustomerTags {
@@ -159,10 +161,8 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 			Key:   aws.String(k),
 			Value: aws.String(v),
 		}
-		distributionConfigWithTags.Tags.Items = append(distributionConfigWithTags.Tags.Items, tag)
+		i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 	}
-
-	i := &cloudfront.CreateDistributionWithTagsInput{DistributionConfigWithTags: distributionConfigWithTags}
 
 	if existing != nil {
 		if distributionNeedsUpdate {
@@ -172,8 +172,8 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 
 			// Take the existing distributionConfig (with all defaulting happened on AWS side) and override with our desired settings.
 			dc := existing.DistributionConfig
-			dc.Aliases = distributionConfigWithTags.DistributionConfig.Aliases
-			dc.ViewerCertificate = distributionConfigWithTags.DistributionConfig.ViewerCertificate
+			dc.Aliases = i.DistributionConfigWithTags.DistributionConfig.Aliases
+			dc.ViewerCertificate = i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate
 
 			o, err := s.Client.UpdateDistribution(&cloudfront.UpdateDistributionInput{
 				DistributionConfig: dc,
@@ -194,7 +194,7 @@ func (s *Service) CreateDistribution(config DistributionConfig) (*Distribution, 
 			s.scope.Info(fmt.Sprintf("Adding %d tags", len(tagsToBeAdded)))
 			_, err := s.Client.TagResource(&cloudfront.TagResourceInput{
 				Resource: existing.ARN,
-				Tags:     distributionConfigWithTags.Tags,
+				Tags:     i.DistributionConfigWithTags.Tags,
 			})
 			if err != nil {
 				s.scope.Error(err, "Error adding cloudfront tags")
