@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Limit retries
+- Send metrics in case S3 objects cannot be uploaded.
+
 ## [0.8.4] - 2022-11-02
 
 ### Fixed
