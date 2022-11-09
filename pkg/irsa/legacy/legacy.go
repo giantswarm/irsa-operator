@@ -58,7 +58,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	b := backoff.NewMaxRetries(20, 15*time.Second)
+	b := backoff.NewMaxRetries(3, 5*time.Second)
 
 	err = s.S3.IsBucketReady(s.Scope.BucketName())
 	// check if bucket exists
@@ -166,6 +166,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to upload files")
 		return err
 	}
