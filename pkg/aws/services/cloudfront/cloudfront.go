@@ -108,7 +108,6 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 					},
 				},
 				ViewerCertificate: &cloudfront.ViewerCertificate{
-					ACMCertificateArn:      aws.String(config.CertificateArn),
 					MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
 					SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
 				},
@@ -117,6 +116,14 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 				Items: []*cloudfront.Tag{},
 			},
 		},
+	}
+
+	if config.CertificateArn == "" {
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.ACMCertificateArn = nil
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.Certificate = nil
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.CertificateSource = nil
+	} else {
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.SetACMCertificateArn(config.CertificateArn)
 	}
 
 	// Add internal and customer tags.
