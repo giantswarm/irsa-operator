@@ -161,6 +161,8 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		dc.Aliases = i.DistributionConfigWithTags.DistributionConfig.Aliases
 		dc.ViewerCertificate = i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate
 
+		fmt.Printf("dc.ViewerCertificate = %v\n", dc.ViewerCertificate)
+
 		_, err := s.Client.UpdateDistribution(&cloudfront.UpdateDistributionInput{
 			DistributionConfig: dc,
 			Id:                 aws.String(d.DistributionId),
