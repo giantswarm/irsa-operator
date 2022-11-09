@@ -73,23 +73,17 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	i := &cloudfront.CreateDistributionWithTagsInput{
 		DistributionConfigWithTags: &cloudfront.DistributionConfigWithTags{
 			DistributionConfig: &cloudfront.DistributionConfig{
-				Comment: aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
 				Aliases: &cloudfront.Aliases{
 					Items:    config.Aliases,
 					Quantity: aws.Int64(int64(len(config.Aliases))),
 				},
 				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
+				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 					// AWS managed cache policy id, caching is disabled for the distribution.
 					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
 					TargetOriginId:       aws.String(fmt.Sprintf("%s.s3.%s.%s", s.scope.BucketName(), s.scope.Region(), key.AWSEndpoint(s.scope.Region()))),
 					ViewerProtocolPolicy: aws.String("redirect-to-https"),
-				},
-				Restrictions: &cloudfront.Restrictions{
-					GeoRestriction: &cloudfront.GeoRestriction{
-						RestrictionType: aws.String("none"),
-						Quantity:        aws.Int64(0),
-					},
 				},
 				Enabled: aws.Bool(true),
 				Origins: &cloudfront.Origins{
@@ -107,6 +101,17 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 					},
 					Quantity: aws.Int64(1),
 				},
+				Restrictions: &cloudfront.Restrictions{
+					GeoRestriction: &cloudfront.GeoRestriction{
+						RestrictionType: aws.String("none"),
+						Quantity:        aws.Int64(0),
+					},
+				},
+				ViewerCertificate: &cloudfront.ViewerCertificate{
+					ACMCertificateArn:      nil,
+					MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
+					SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
+				},
 			},
 			Tags: &cloudfront.Tags{
 				Items: []*cloudfront.Tag{},
@@ -115,11 +120,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	}
 
 	if config.CertificateArn != "" {
-		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate = &cloudfront.ViewerCertificate{
-			ACMCertificateArn:      aws.String(config.CertificateArn),
-			MinimumProtocolVersion: aws.String(cloudfront.MinimumProtocolVersionTlsv122021),
-			SSLSupportMethod:       aws.String(cloudfront.SSLSupportMethodSniOnly),
-		}
+		i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate.ACMCertificateArn = aws.String(config.CertificateArn)
 	}
 
 	// Add internal and customer tags.
@@ -160,8 +161,6 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		dc := diff.Existing.DistributionConfig
 		dc.Aliases = i.DistributionConfigWithTags.DistributionConfig.Aliases
 		dc.ViewerCertificate = i.DistributionConfigWithTags.DistributionConfig.ViewerCertificate
-
-		fmt.Printf("dc.ViewerCertificate = %v\n", dc.ViewerCertificate)
 
 		_, err := s.Client.UpdateDistribution(&cloudfront.UpdateDistributionInput{
 			DistributionConfig: dc,
