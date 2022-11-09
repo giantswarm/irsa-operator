@@ -30,7 +30,7 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	i := &cloudfront.CreateCloudFrontOriginAccessIdentityInput{
 		CloudFrontOriginAccessIdentityConfig: &cloudfront.OriginAccessIdentityConfig{
 			CallerReference: aws.String(fmt.Sprintf("access-identity-cluster-%s", s.scope.ClusterName())),
-			Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
+			Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 		},
 	}
 	o, err := s.Client.CreateCloudFrontOriginAccessIdentity(i)
@@ -78,7 +78,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 					Quantity: aws.Int64(int64(len(config.Aliases))),
 				},
 				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
-				Comment:         aws.String(fmt.Sprintf("Created by irsa-operator for cluster %s", s.scope.ClusterName())),
+				Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 					// AWS managed cache policy id, caching is disabled for the distribution.
 					CachePolicyId:        aws.String("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"),
