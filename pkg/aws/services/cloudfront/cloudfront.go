@@ -59,6 +59,11 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		return nil, err
 	}
 
+	if diff.IsUpToDate() {
+		s.scope.Info("Cloudfront distribution is up to date")
+		return d, nil
+	}
+
 	oaiId, err := s.CreateOriginAccessIdentity()
 	if err != nil {
 		s.scope.Error(err, "Error creating cloudfront origin access identity")

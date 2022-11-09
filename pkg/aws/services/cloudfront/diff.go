@@ -16,6 +16,10 @@ type Diff struct {
 	TagsToBeRemoved []string
 }
 
+func (d *Diff) IsUpToDate() bool {
+	return !d.NeedsUpdate && !d.NeedsCreate && len(d.TagsToBeAdded) == 0 && len(d.TagsToBeRemoved) == 0
+}
+
 func (s *Service) checkDiff(d *Distribution, config DistributionConfig) (*Diff, error) {
 	ret := &Diff{}
 
