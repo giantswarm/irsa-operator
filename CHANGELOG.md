@@ -9,8 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
+
+### Added
+
+- Add `irsa-operator` to capa-app-collection.
+
 ### Fixed
 
+- Fix detection of v19 and v18 releases.
 - Limit retries
 - Send metrics in case S3 objects cannot be uploaded.
 

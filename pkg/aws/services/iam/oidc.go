@@ -8,47 +8,94 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
+	"github.com/giantswarm/microerror"
 	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) CreateOIDCProvider(release *semver.Version, domain, bucketName, region string) error {
-	var identityProviderURL string
-
-	s3Endpoint := fmt.Sprintf("s3.%s.%s", region, key.AWSEndpoint(region))
-	if (key.IsV18Release(release) && !key.IsChina(region)) || (s.scope.MigrationNeeded() && !key.IsChina(region)) {
-		identityProviderURL = fmt.Sprintf("https://%s", domain)
-	} else {
-		identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, bucketName)
-	}
-
+func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error {
 	tp, err := caThumbPrint(identityProviderURL)
 	if err != nil {
 		return err
 	}
 
+	arn, existing, err := s.findOIDCProvider()
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	if existing != nil {
+		// Check if values are up to date.
+		if fmt.Sprintf("https://%s", *existing.Url) != identityProviderURL ||
+			len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
+			len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
+
+			s.scope.Info("OIDCProvider needs to be replaced")
+			s.scope.Info("Deleting old OIDCProvider")
+			_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
+			if err != nil {
+				return microerror.Mask(err)
+			}
+			s.scope.Info("Deleted old OIDCProvider")
+		} else {
+			s.scope.Info("OIDCProvider already exists and is up to date")
+			return nil
+		}
+	}
+
 	i := &iam.CreateOpenIDConnectProviderInput{
 		Url:            aws.String(identityProviderURL),
-		ThumbprintList: []*string{aws.String(removeColon(tp))},
-		ClientIDList:   []*string{aws.String(fmt.Sprintf("sts.%s", key.AWSEndpoint(region)))},
+		ThumbprintList: []*string{aws.String(tp)},
+		ClientIDList:   []*string{aws.String(clientID)},
 	}
 
 	_, err = s.Client.CreateOpenIDConnectProvider(i)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case iam.ErrCodeEntityAlreadyExistsException:
-				s.scope.Info("OIDC provider already exists, skipping creation")
-				return nil
-			}
-		}
-		return err
+		return microerror.Mask(err)
 	}
 	s.scope.Info("Created OIDC provider")
 
 	return nil
+}
+
+func (s *Service) findOIDCProvider() (string, *iam.GetOpenIDConnectProviderOutput, error) {
+	s.scope.Info("Looking for existing OIDC provider")
+	output, err := s.Client.ListOpenIDConnectProviders(&iam.ListOpenIDConnectProvidersInput{})
+	if err != nil {
+		return "", nil, microerror.Mask(err)
+	}
+
+	for _, providerArn := range output.OpenIDConnectProviderList {
+		p, err := s.Client.GetOpenIDConnectProvider(&iam.GetOpenIDConnectProviderInput{
+			OpenIDConnectProviderArn: providerArn.Arn,
+		})
+		if err != nil {
+			return "", nil, microerror.Mask(err)
+		}
+
+		// Check if tags match
+		installationTagFound := false
+		clusterTagFound := false
+		for _, tag := range p.Tags {
+			if *tag.Key == key.S3TagInstallation && *tag.Value == s.scope.Installation() {
+				installationTagFound = true
+			}
+			if *tag.Key == key.S3TagCluster && *tag.Value == s.scope.ClusterName() {
+				clusterTagFound = true
+			}
+		}
+
+		if installationTagFound && clusterTagFound {
+			s.scope.Info("Found existing OIDC provider")
+			return *providerArn.Arn, p, nil
+		}
+	}
+
+	s.scope.Info("Did not find any OIDC provider")
+
+	return "", nil, nil
 }
 
 func (s *Service) CreateOIDCTags(release *semver.Version, cfDomain, accountID, bucketName, region string, customerTags map[string]string) error {
@@ -175,9 +222,5 @@ func caThumbPrint(ep string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fp.SHA1, nil
-}
-
-func removeColon(value string) string {
-	return strings.Replace(value, ":", "", -1)
+	return strings.Replace(fp.SHA1, ":", "", -1), nil
 }

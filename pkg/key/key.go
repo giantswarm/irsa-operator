@@ -25,9 +25,6 @@ const (
 
 	CustomerTagLabel = "tag.provider.giantswarm.io/"
 	ReleaseLabel     = "release.giantswarm.io/version"
-
-	V18AlphaRelease = "18.0.0-alpha1"
-	V19AlphaRelease = "19.0.0-alpha1"
 )
 
 func BucketName(accountID, clusterName string) string {
@@ -54,6 +51,10 @@ func AWSEndpoint(region string) string {
 	return awsEndpoint
 }
 
+func STSUrl(region string) string {
+	return fmt.Sprintf("sts.%s", AWSEndpoint(region))
+}
+
 func IsChina(region string) bool {
 	return strings.HasPrefix(region, "cn-")
 }
@@ -67,13 +68,11 @@ func ARNPrefix(region string) string {
 }
 
 func IsV18Release(releaseVersion *semver.Version) bool {
-	v18AlphaVersion, _ := semver.New(V18AlphaRelease)
-	return releaseVersion.GE(*v18AlphaVersion)
+	return releaseVersion.Major >= 18
 }
 
 func IsV19Release(releaseVersion *semver.Version) bool {
-	v19, _ := semver.New(V19AlphaRelease)
-	return releaseVersion.GE(*v19)
+	return releaseVersion.Major >= 19
 }
 
 func ContainsFinalizer(s []string, str string) bool {
