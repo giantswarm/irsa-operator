@@ -95,3 +95,7 @@ func GetCustomerTags(cluster *capi.Cluster) map[string]string {
 	}
 	return customerTags
 }
+
+func CloudFrontDistributionComment(clusterID string) string {
+	return fmt.Sprintf("Created by irsa-operator for cluster %s", clusterID)
+}
