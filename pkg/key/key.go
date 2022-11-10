@@ -99,19 +99,3 @@ func GetCustomerTags(cluster *capi.Cluster) map[string]string {
 func CloudFrontDistributionComment(clusterID string) string {
 	return fmt.Sprintf("Created by irsa-operator for cluster %s", clusterID)
 }
-
-func CloudFrontAlias(clusterID string, installation string, region string) string {
-	return fmt.Sprintf("irsa.%s", BaseDomain(clusterID, installation, region))
-}
-
-func BaseDomain(clusterID string, installation string, region string) string {
-	return fmt.Sprintf("%s.k8s.%s.%s.aws.gigantic.io", clusterID, installation, region)
-}
-
-func EnsureTrailingDot(domain string) string {
-	if strings.HasSuffix(domain, ".") {
-		return domain
-	}
-
-	return fmt.Sprintf("%s.", domain)
-}

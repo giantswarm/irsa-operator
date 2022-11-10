@@ -12,9 +12,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) EnsureCertificate(customerTags map[string]string) (*string, error) {
-	domain := key.CloudFrontAlias(s.scope.ClusterName(), s.scope.Installation(), s.scope.Region())
-
+func (s *Service) EnsureCertificate(domain string, customerTags map[string]string) (*string, error) {
 	s.scope.Info(fmt.Sprintf("Ensuring ACM certificate for domain %q", domain))
 
 	// Check if certificate exists
@@ -120,9 +118,8 @@ func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
 	}, nil
 }
 
-func (s *Service) DeleteCertificate() error {
+func (s *Service) DeleteCertificate(domain string) error {
 	s.scope.Info("Ensuring ACM certificate is deleted")
-	domain := key.CloudFrontAlias(s.scope.ClusterName(), s.scope.Installation(), s.scope.Region())
 
 	arn, err := s.findCertificateForDomain(domain)
 	if err != nil {
