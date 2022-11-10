@@ -14,6 +14,11 @@ type IAMScope interface {
 	aws.ClusterScoper
 }
 
+// Route53Scope is a scope for use with the route53 reconciling service in cluster
+type Route53Scope interface {
+	aws.ClusterScoper
+}
+
 // S3Scope is a scope for use with the S3 reconciling service in cluster
 type S3Scope interface {
 	aws.ClusterScoper

@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/component-base/version"
@@ -29,6 +30,15 @@ func NewCloudfrontClient(session aws.Session, arn string, target runtime.Object)
 	CloudfrontClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
 
 	return CloudfrontClient
+}
+
+// NewRoute53Client creates a new route53 API client for a given session
+func NewRoute53Client(session aws.Session, arn string, target runtime.Object) *route53.Route53 {
+	route53Client := route53.New(session.Session(), &awsclient.Config{Credentials: stscreds.NewCredentials(session.Session(), arn)})
+	route53Client.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	route53Client.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return route53Client
 }
 
 // NewS3Client creates a new S3 API client for a given session
