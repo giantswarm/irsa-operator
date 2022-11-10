@@ -72,6 +72,7 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 	return output.CertificateArn, nil
 }
 
+// IsCertificateIssued checks if an ACM certificate is issued.
 func (s *Service) IsCertificateIssued(arn string) (bool, error) {
 	s.scope.Info("Checking status of ACM certificate")
 
@@ -85,6 +86,7 @@ func (s *Service) IsCertificateIssued(arn string) (bool, error) {
 	return *output.Certificate.Status == acm.CertificateStatusIssued, nil
 }
 
+// IsValidated checks wheter an ACM certificate's ownership is already validated or not.
 func (s *Service) IsValidated(arn string) (bool, error) {
 	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
 		CertificateArn: aws.String(arn),
@@ -96,6 +98,7 @@ func (s *Service) IsValidated(arn string) (bool, error) {
 	return *output.Certificate.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess, nil
 }
 
+// GetValidationCNAME returns a CNAME record that needs to be created in order for automated domain ownership validation to work.
 func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
 	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
 		CertificateArn: aws.String(arn),
