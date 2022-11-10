@@ -4,6 +4,11 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws"
 )
 
+// ACMScope is a scope for use with the ACM reconciling service in cluster
+type ACMScope interface {
+	aws.ClusterScoper
+}
+
 // CloudfrontScope is a scope for use with the Cloudfront reconciling service in cluster
 type CloudfrontScope interface {
 	aws.ClusterScoper

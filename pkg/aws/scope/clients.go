@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -21,6 +22,20 @@ type AWSClients struct {
 	S3         *s3.S3
 	IAM        *iam.IAM
 	Cloudfront *cloudfront.CloudFront
+}
+
+// NewACMClient creates a new ACM API client for a given session
+func NewACMClient(session aws.Session, arn string, target runtime.Object) *acm.ACM {
+	acmClient := acm.New(session.Session(), &awsclient.Config{
+		Credentials: stscreds.NewCredentials(session.Session(), arn),
+		// We use ACM for cloud front, and the certs have to be in us east 1 or it won't work.
+		// See 'ACMCertificateArn' section in https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ViewerCertificate.html
+		Region: awsclient.String("us-east-1"),
+	})
+	acmClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	acmClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return acmClient
 }
 
 // NewCloudfrontClient creates a new Cloudfront API client for a given session

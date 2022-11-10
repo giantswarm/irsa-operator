@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add new service to handle route53 DNS records.
+- Add new service to handle ACM certificates.
 
 ### Changed
 
