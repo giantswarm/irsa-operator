@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add new service to handle route53 DNS records.
+
 ### Changed
 
 - Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
