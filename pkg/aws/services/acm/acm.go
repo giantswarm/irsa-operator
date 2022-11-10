@@ -16,17 +16,15 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 	s.scope.Info(fmt.Sprintf("Ensuring ACM certificate for domain %q", domain))
 
 	// Check if certificate exists
-	existing, err := s.findCertificateForDomain(domain)
+	certificateArn, err := s.findCertificateForDomain(domain)
 	if err != nil {
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
+		return nil, microerror.Mask(err)
 	}
 
-	if existing != nil {
+	if certificateArn != nil {
 		s.scope.Info("ACM certificate already exists")
 
-		return existing, nil
+		return certificateArn, nil
 	}
 
 	input := &acm.RequestCertificateInput{
@@ -93,6 +91,10 @@ func (s *Service) IsValidated(arn string) (bool, error) {
 	})
 	if err != nil {
 		return false, err
+	}
+
+	if len(output.Certificate.DomainValidationOptions) == 0 {
+		return false, nil
 	}
 
 	return *output.Certificate.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess, nil
