@@ -29,7 +29,6 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
-	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type Service struct {
@@ -289,15 +288,19 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		var identityProviderURL string
+		var identityProviderURLs []string
 		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
 		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-			identityProviderURL = fmt.Sprintf("https://%s", cfDomain)
+			identityProviderURLs = append(identityProviderURLs, fmt.Sprintf("https://%s", cfDomain))
 		} else {
-			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
+			identityProviderURLs = append(identityProviderURLs, fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName()))
 		}
 
-		return s.IAM.EnsureOIDCProvider(identityProviderURL, key.STSUrl(s.Scope.Region()))
+		if cloudfrontAliasDomain != "" {
+			identityProviderURLs = append(identityProviderURLs, cloudfrontAliasDomain)
+		}
+
+		return s.IAM.EnsureOIDCProvider(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
 	}
 	n := func(err error, d time.Duration) {
 		s.Scope.Logger.Info("level", "warning", "message", fmt.Sprintf("retrying backoff in '%s' due to error", d.String()), "stack", fmt.Sprintf("%#v", err))
@@ -307,29 +310,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create OIDC provider")
 		return err
-	}
-
-	err = s.IAM.CreateOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to create tags")
-		return err
-	}
-
-	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
-		return err
-	}
-
-	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
-		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
-		if err := s.IAM.RemoveOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to remove tags")
-			return microerror.Mask(err)
-		}
 	}
 
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
@@ -351,7 +331,6 @@ func (s Service) Delete(ctx context.Context) error {
 		return err
 	}
 
-	var cfDomain string
 	var cfDistributionId string
 	var cfOriginAccessIdentityId string
 	cfConfig := &v1.ConfigMap{}
@@ -366,12 +345,11 @@ func (s Service) Delete(ctx context.Context) error {
 			return err
 		}
 
-		cfDomain = cfConfig.Data["domainAlias"]
 		cfDistributionId = cfConfig.Data["distributionId"]
 		cfOriginAccessIdentityId = cfConfig.Data["originAccessIdentityId"]
 	}
 
-	err = s.IAM.DeleteOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	err = s.IAM.DeleteOIDCProviders()
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
