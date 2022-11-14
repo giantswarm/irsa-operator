@@ -104,6 +104,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	customerTags := key.GetCustomerTags(cluster)
 	cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+	aliases := make([]*string, 0)
+	cloudfrontCertificateARN := ""
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
@@ -170,9 +172,16 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 				return microerror.Mask(certificateNotIssuedError)
 			}
+
+			aliases = append(aliases, &cloudfrontAliasDomain)
+			cloudfrontCertificateARN = *certificateArn
 		}
 
-		distribution, err := s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags})
+		distribution, err := s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{
+			Aliases:        aliases,
+			CertificateArn: cloudfrontCertificateARN,
+			CustomerTags:   customerTags,
+		})
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
