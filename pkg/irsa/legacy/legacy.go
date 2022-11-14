@@ -29,6 +29,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/pkcs"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type Service struct {
@@ -253,14 +254,15 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		}
 
 		cfDomain = distribution.Domain
-		if cloudfrontAliasDomain != "" {
-			cfDomain = cloudfrontAliasDomain
-		}
 		cfOaiId = data["originAccessIdentityId"]
 	}
 
 	uploadFiles := func() error {
-		return s.S3.UploadFiles(s.Scope.Release(), cfDomain, s.Scope.BucketName(), privateKey)
+		domain := cfDomain
+		if len(aliases) > 0 {
+			domain = *aliases[0]
+		}
+		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
 	}
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -291,13 +293,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		var identityProviderURLs []string
 		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
 		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-			identityProviderURLs = append(identityProviderURLs, fmt.Sprintf("https://%s", cfDomain))
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(cfDomain))
 		} else {
-			identityProviderURLs = append(identityProviderURLs, fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName()))
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, s.Scope.BucketName())))
 		}
 
-		if cloudfrontAliasDomain != "" {
-			identityProviderURLs = append(identityProviderURLs, cloudfrontAliasDomain)
+		for _, alias := range aliases {
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
 		}
 
 		return s.IAM.EnsureOIDCProvider(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
