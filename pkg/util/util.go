@@ -10,9 +10,7 @@ func EnsureHTTPS(url string) string {
 		return url
 	}
 
-	if strings.HasPrefix(url, "http://") {
-		url = url[len("http://"):]
-	}
+	url = strings.TrimPrefix(url, "http://")
 
 	return fmt.Sprintf("https://%s", url)
 }
