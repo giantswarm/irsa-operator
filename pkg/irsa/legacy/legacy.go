@@ -103,7 +103,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	customerTags := key.GetCustomerTags(cluster)
-	cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
 	aliases := make([]*string, 0)
 	cloudfrontCertificateARN := ""
 
@@ -117,6 +116,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
 		var hostedZoneID string
+		cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
 			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
@@ -195,16 +195,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			"originAccessIdentityId": distribution.OriginAccessIdentityId,
 		}
 
-		if cloudfrontAliasDomain != "" && hostedZoneID != "" {
-			// Create IRSA Alias CNAME
-			err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()), Value: key.EnsureTrailingDot(distribution.Domain)})
-			if err != nil {
-				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
-				return err
+		if len(aliases) > 0 && hostedZoneID != "" {
+			for _, alias := range aliases {
+				// Create IRSA Alias CNAME
+				err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
+					return err
+				}
 			}
 
-			data["domainAlias"] = cloudfrontAliasDomain
+			data["domainAlias"] = *aliases[0]
 		}
 
 		cfConfig := &v1.ConfigMap{}
