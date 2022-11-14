@@ -15,11 +15,18 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) EnsureOIDCProvider(identityProviderURL, clientID string) error {
-	tp, err := caThumbPrint(identityProviderURL)
+func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
+	providers, err := s.findOIDCProviders()
 	if err != nil {
-		return err
+		return microerror.Mask(err)
 	}
+
+	// Ensure there is one provider for each of the URLs
+	for _, identityProviderURL := range identityProviderURLs {
+		tp, err := caThumbPrint(identityProviderURL)
+		if err != nil {
+			return err
+		}
 
 	arn, existing, err := s.findOIDCProvider()
 	if err != nil {
