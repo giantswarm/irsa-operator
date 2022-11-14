@@ -21,6 +21,7 @@ func (s *Service) EnsureOIDCProvider(identityProviderURLs []string, clientID str
 		return microerror.Mask(err)
 	}
 
+	// Ensure there is one provider for each of the URLs
 	for _, identityProviderURL := range identityProviderURLs {
 		tp, err := caThumbPrint(identityProviderURL)
 		if err != nil {
@@ -30,10 +31,9 @@ func (s *Service) EnsureOIDCProvider(identityProviderURLs []string, clientID str
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
-			if *existing.Url == identityProviderURL {
+			if fmt.Sprintf("https://%s", *existing.Url) == identityProviderURL {
 				// Check if values are up to date.
-				if fmt.Sprintf("https://%s", *existing.Url) != identityProviderURL ||
-					len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
+				if len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
 					len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 
 					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s needs to be replaced", identityProviderURL))
