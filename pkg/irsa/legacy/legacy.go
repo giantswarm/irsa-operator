@@ -103,8 +103,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	customerTags := key.GetCustomerTags(cluster)
-	var cloudfrontAliasDomain string
-	cloudfrontAliasDomain = key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+	cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
@@ -414,8 +413,7 @@ func (s Service) Delete(ctx context.Context) error {
 			return err
 		}
 
-		var cloudFrontAliasDomain string
-		cloudFrontAliasDomain = key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		cloudFrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
 		if cloudFrontAliasDomain != "" {
 			err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
 			if err != nil {
