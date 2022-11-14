@@ -55,6 +55,8 @@ func (s *Service) EnsureOIDCProvider(identityProviderURLs []string, clientID str
 			continue
 		}
 
+		s.scope.Info(fmt.Sprintf("Creating OIDCProvider for URL %s", identityProviderURL))
+
 		i := &iam.CreateOpenIDConnectProviderInput{
 			Url:            aws.String(identityProviderURL),
 			ThumbprintList: []*string{aws.String(tp)},
