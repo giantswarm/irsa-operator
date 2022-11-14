@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
 - Improve `cloudfront` service in order to update the cloudfront distribution on AWS when any config is changed.
+- Allow having multiple URLs in the `oidc` service.
 
 ## [0.8.5] - 2022-11-09
 
