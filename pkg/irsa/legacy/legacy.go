@@ -198,10 +198,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, s.Scope.BucketName())))
 		}
 
-		for _, alias := range aliases {
-			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
-		}
-
 		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
 	}
 	n := func(err error, d time.Duration) {
