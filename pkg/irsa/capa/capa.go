@@ -204,7 +204,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
 		}
 
-		return s.IAM.EnsureOIDCProvider([]string{identityProviderURL}, key.STSUrl(s.Scope.Region()), customerTags)
+		return s.IAM.EnsureOIDCProviders([]string{identityProviderURL}, key.STSUrl(s.Scope.Region()), customerTags)
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {

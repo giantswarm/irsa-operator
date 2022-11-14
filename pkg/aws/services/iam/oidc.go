@@ -15,7 +15,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
-func (s *Service) EnsureOIDCProvider(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
+func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
 	providers, err := s.findOIDCProviders()
 	if err != nil {
 		return microerror.Mask(err)
@@ -31,7 +31,7 @@ func (s *Service) EnsureOIDCProvider(identityProviderURLs []string, clientID str
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
-			if fmt.Sprintf("https://%s", *existing.Url) == identityProviderURL {
+			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
 				// Check if values are up to date.
 				if len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
 					len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
