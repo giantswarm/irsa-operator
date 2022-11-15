@@ -3,8 +3,10 @@ package iam
 import "testing"
 
 func Test_sliceEqualsIgnoreCase(t *testing.T) {
-	one := "1"
-	two := "2"
+	one := "one"
+	two := "two"
+	oneUpper := "One"
+	twoUpper := "Two"
 
 	tests := []struct {
 		name string
@@ -35,6 +37,18 @@ func Test_sliceEqualsIgnoreCase(t *testing.T) {
 			src:  []*string{&one, &two, nil},
 			dst:  []*string{&two, nil, &one},
 			want: true,
+		},
+		{
+			name: "Same values, different case",
+			src:  []*string{&one, &two},
+			dst:  []*string{&oneUpper, &twoUpper},
+			want: true,
+		},
+		{
+			name: "Different values",
+			src:  []*string{&one},
+			dst:  []*string{&two},
+			want: false,
 		},
 	}
 	for _, tt := range tests {

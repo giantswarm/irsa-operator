@@ -39,8 +39,8 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		found := false
 		for arn, existing := range providers {
 			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
-				thumbprintsChanged := sliceEqualsIgnoreCase(existing.ThumbprintList, thumbprints)
-				clientidsChanged := sliceEqualsIgnoreCase(existing.ClientIDList, []*string{&clientID})
+				thumbprintsChanged := !sliceEqualsIgnoreCase(existing.ThumbprintList, thumbprints)
+				clientidsChanged := !sliceEqualsIgnoreCase(existing.ClientIDList, []*string{&clientID})
 
 				if clientidsChanged {
 					// There is no API call to update the client ID, only option is to recreate the whole provider.
@@ -243,8 +243,6 @@ func sliceEqualsIgnoreCase(src []*string, dst []*string) bool {
 			dstVal = append(dstVal, strings.ToLower(*d))
 		}
 	}
-
-	fmt.Printf("sliceEqualsIgnoreCase: %v, %v\n", srcVal, dstVal)
 
 	less := func(a, b string) bool { return a < b }
 	return cmp.Diff(srcVal, dstVal, cmpopts.SortSlices(less)) == ""
