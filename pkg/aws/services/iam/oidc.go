@@ -39,12 +39,11 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		found := false
 		for arn, existing := range providers {
 			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
-
 				thumbprintsChanged := sliceEqualsIgnoreCase(existing.ThumbprintList, thumbprints)
 				clientidsChanged := sliceEqualsIgnoreCase(existing.ClientIDList, []*string{&clientID})
 
-				// Check if values are up to date.
-				if thumbprintsChanged || clientidsChanged {
+				if clientidsChanged {
+					// There is no API call to update the client ID, only option is to recreate the whole provider.
 					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s needs to be replaced", identityProviderURL))
 					s.scope.Info("Deleting OIDCProvider")
 					_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
@@ -52,15 +51,24 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 						return microerror.Mask(err)
 					}
 					s.scope.Info("Deleted OIDCProvider")
-				} else {
+				} else if thumbprintsChanged {
+					_, err := s.Client.UpdateOpenIDConnectProviderThumbprint(&iam.UpdateOpenIDConnectProviderThumbprintInput{
+						OpenIDConnectProviderArn: &arn,
+						ThumbprintList:           thumbprints,
+					})
+					if err != nil {
+						return microerror.Mask(err)
+					}
 					found = true
-					break
+				} else {
+					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
+					found = true
 				}
+				break
 			}
 		}
 
 		if found {
-			s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
 			continue
 		}
 
