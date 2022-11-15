@@ -15,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -103,10 +104,22 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	} else if err != nil {
 		return err
 	}
-
 	customerTags := key.GetCustomerTags(cluster)
+
 	var cloudfrontAliasDomain string
-	cloudfrontAliasDomain = key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+
+	awscluster := &v1alpha3.AWSCluster{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
+	if apierrors.IsNotFound(err) {
+		// fallthrough
+	} else if err != nil {
+		return err
+	} else {
+		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
+		if private != "private" {
+			cloudfrontAliasDomain = key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		}
+	}
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
