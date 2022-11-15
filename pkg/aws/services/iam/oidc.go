@@ -244,6 +244,8 @@ func sliceEqualsIgnoreCase(src []*string, dst []*string) bool {
 		}
 	}
 
+	fmt.Printf("sliceEqualsIgnoreCase: %v, %v\n", srcVal, dstVal)
+
 	less := func(a, b string) bool { return a < b }
 	return cmp.Diff(srcVal, dstVal, cmpopts.SortSlices(less)) == ""
 }
