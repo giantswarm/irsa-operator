@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/giantswarm/backoff"
@@ -19,8 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/acm"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/cloudfront"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
+	"github.com/giantswarm/irsa-operator/pkg/aws/services/route53"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
 	"github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
@@ -33,8 +36,10 @@ type Service struct {
 	Client client.Client
 	Scope  *scope.ClusterScope
 
+	ACM        *acm.Service
 	Cloudfront *cloudfront.Service
 	IAM        *iam.Service
+	Route53    *route53.Service
 	S3         *s3.Service
 }
 
@@ -43,8 +48,10 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		Scope:  scope,
 		Client: client,
 
+		ACM:        acm.NewService(scope),
 		Cloudfront: cloudfront.NewService(scope),
 		IAM:        iam.NewService(scope),
+		Route53:    route53.NewService(scope),
 		S3:         s3.NewService(scope),
 	}
 }
@@ -96,6 +103,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	customerTags := key.GetCustomerTags(cluster)
+	aliases := make([]*string, 0)
+	cloudfrontCertificateARN := ""
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
@@ -106,11 +115,98 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-		distribution, err := s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags})
+		var hostedZoneID string
+		cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		if cloudfrontAliasDomain != "" {
+			// Ensure ACM certificate.
+			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "failed to create ACM certificate")
+				return err
+			}
+
+			// wait for certificate to be issued.
+			issued, err := s.ACM.IsCertificateIssued(*certificateArn)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "failed to check if ACM certificate is issued")
+				return err
+			}
+
+			hostedZoneID, err = s.Route53.FindHostedZone(key.BaseDomain(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()))
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
+				return err
+			}
+
+			if !issued {
+				s.Scope.Logger.Info("ACM certificate is not issued yet")
+
+				// Check if domain ownership is validated
+				validated, err := s.ACM.IsValidated(*certificateArn)
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger.Error(err, "failed to check if ACM certificate's ownership is validated")
+					return err
+				}
+
+				if !validated {
+					// Check if DNS record is present
+					cname, err := s.ACM.GetValidationCNAME(*certificateArn)
+					if err != nil {
+						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+						s.Scope.Logger.Error(err, "failed to get ACM certificate's validation DNS record details")
+						return err
+					}
+
+					err = s.Route53.EnsureDNSRecord(hostedZoneID, *cname)
+					if err != nil {
+						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+						s.Scope.Logger.Error(err, "failed to create ACM certificate's validation DNS record")
+						return err
+					}
+
+				}
+
+				return microerror.Mask(certificateNotIssuedError)
+			}
+
+			aliases = append(aliases, &cloudfrontAliasDomain)
+			cloudfrontCertificateARN = *certificateArn
+		}
+
+		distribution, err := s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{
+			Aliases:        aliases,
+			CertificateArn: cloudfrontCertificateARN,
+			CustomerTags:   customerTags,
+		})
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
 			return err
+		}
+
+		data := map[string]string{
+			"arn":                    distribution.ARN,
+			"domain":                 distribution.Domain,
+			"distributionId":         distribution.DistributionId,
+			"originAccessIdentityId": distribution.OriginAccessIdentityId,
+		}
+
+		if len(aliases) > 0 && hostedZoneID != "" {
+			for _, alias := range aliases {
+				// Create IRSA Alias CNAME
+				err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
+					return err
+				}
+			}
+
+			data["domainAlias"] = *aliases[0]
 		}
 
 		cfConfig := &v1.ConfigMap{}
@@ -123,17 +219,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			}
 
 			// create new OIDC Cloudfront config
-			cfConfig := &v1.ConfigMap{
+			cfConfig = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s.Scope.ConfigName(),
 					Namespace: s.Scope.ClusterNamespace(),
 				},
-				Data: map[string]string{
-					"arn":                    distribution.ARN,
-					"domain":                 distribution.Domain,
-					"distributionId":         distribution.DistributionId,
-					"originAccessIdentityId": distribution.OriginAccessIdentityId,
-				},
+				Data: data,
 			}
 
 			if err := s.Client.Create(ctx, cfConfig); err != nil {
@@ -142,27 +233,38 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 			s.Scope.Logger.Info("Created OIDC cloudfront config map in k8s")
-			cfDomain = distribution.Domain
-			cfOaiId = distribution.OriginAccessIdentityId
-
-		} else if err == nil {
-			cfDomain = cfConfig.Data["domain"]
-			if cfDomain == "" {
-				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront domain for cluster")
-				return err
-			}
-			cfOaiId = cfConfig.Data["originAccessIdentityId"]
-			if cfDomain == "" {
-				s.Scope.Logger.Error(err, "failed to get OIDC cloudfront OAI id for cluster")
-				return err
-			}
-		} else {
+		} else if err != nil {
 			return err
 		}
+
+		// Ensure CM is up to date
+		if reflect.DeepEqual(cfConfig.Data, data) {
+			s.Scope.Logger.Info("Configmap is already up to date")
+		} else {
+			s.Scope.Logger.Info("Configmap needs to be updated")
+
+			cfConfig.Data = data
+
+			err = s.Client.Update(ctx, cfConfig)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "error updating configmap")
+				return err
+			}
+
+			s.Scope.Logger.Info("Configmap updated successfully")
+		}
+
+		cfDomain = distribution.Domain
+		cfOaiId = data["originAccessIdentityId"]
 	}
 
 	uploadFiles := func() error {
-		return s.S3.UploadFiles(s.Scope.Release(), cfDomain, s.Scope.BucketName(), privateKey)
+		domain := cfDomain
+		if len(aliases) > 0 {
+			domain = *aliases[0]
+		}
+		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
 	}
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -196,6 +298,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(cfDomain))
 		} else {
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, s.Scope.BucketName())))
+		}
+
+		for _, alias := range aliases {
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
 		}
 
 		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
@@ -296,6 +402,15 @@ func (s Service) Delete(ctx context.Context) error {
 		if err != nil {
 			s.Scope.Logger.Error(err, "failed to delete cloudfront origin access identity for cluster")
 			return err
+		}
+
+		cloudFrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		if cloudFrontAliasDomain != "" {
+			err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
+			if err != nil {
+				s.Scope.Logger.Error(err, "error deleting ACM certificate")
+				return err
+			}
 		}
 
 		err = s.Client.Delete(ctx, cfConfig, &client.DeleteOptions{Raw: &metav1.DeleteOptions{}})
