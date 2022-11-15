@@ -52,6 +52,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					}
 					s.scope.Info("Deleted OIDCProvider")
 				} else if thumbprintsChanged {
+					s.scope.Info(fmt.Sprintf("Updating thumbprints on OIDCProvider for URL %s", identityProviderURL))
 					_, err := s.Client.UpdateOpenIDConnectProviderThumbprint(&iam.UpdateOpenIDConnectProviderThumbprintInput{
 						OpenIDConnectProviderArn: &arn,
 						ThumbprintList:           thumbprints,
@@ -59,6 +60,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					if err != nil {
 						return microerror.Mask(err)
 					}
+					s.scope.Info(fmt.Sprintf("Updated thumbprints on OIDCProvider for URL %s", identityProviderURL))
 					found = true
 				} else {
 					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
