@@ -30,6 +30,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
+	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type Service struct {
@@ -128,12 +129,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
+	aliases := make([]*string, 0)
+	var cloudfrontCertificateARN string
+	var hostedZoneID string
+
 	distribution := &cloudfront.Distribution{}
 	// Add Cloudfront only for non-China region
 	if !key.IsChina(s.Scope.Region()) {
-
-		aliases := make([]*string, 0)
-
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
 			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
@@ -151,7 +153,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err := s.Route53.FindHostedZone(key.BaseDomain(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()))
+			hostedZoneID, err = s.Route53.FindHostedZone(key.BaseDomain(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()))
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
@@ -191,9 +193,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			}
 
 			aliases = append(aliases, &cloudfrontAliasDomain)
+			cloudfrontCertificateARN = *certificateArn
 		}
 
-		distribution, err = s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags, Aliases: aliases})
+		distribution, err = s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags, Aliases: aliases, CertificateArn: cloudfrontCertificateARN})
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
@@ -209,6 +212,20 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		"domain":                 distribution.Domain,
 		"distributionId":         distribution.DistributionId,
 		"originAccessIdentityId": distribution.OriginAccessIdentityId,
+	}
+
+	if len(aliases) > 0 && hostedZoneID != "" {
+		for _, alias := range aliases {
+			// Create IRSA Alias CNAME
+			err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
+				return err
+			}
+		}
+
+		data["domainAlias"] = *aliases[0]
 	}
 
 	cfConfig := &v1.Secret{}
@@ -290,15 +307,19 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 
 	createOIDCProvider := func() error {
-		var identityProviderURL string
+		var identityProviderURLs []string
 		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
 		if (key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-			identityProviderURL = fmt.Sprintf("https://%s", cfDomain)
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(cfDomain))
 		} else {
-			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, s.Scope.BucketName())))
 		}
 
-		return s.IAM.EnsureOIDCProviders([]string{identityProviderURL}, key.STSUrl(s.Scope.Region()), customerTags)
+		for _, alias := range aliases {
+			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
+		}
+
+		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
