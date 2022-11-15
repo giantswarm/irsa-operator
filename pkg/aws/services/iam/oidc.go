@@ -45,7 +45,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				for _, add := range clientidsDiff.Added {
 					s.scope.Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
 					_, err = s.Client.AddClientIDToOpenIDConnectProvider(&iam.AddClientIDToOpenIDConnectProviderInput{
-						ClientID:                 &add,
+						ClientID:                 aws.String(add),
 						OpenIDConnectProviderArn: &arn,
 					})
 					if err != nil {
@@ -56,7 +56,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				for _, remove := range clientidsDiff.Removed {
 					s.scope.Info(fmt.Sprintf("Removing client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
 					_, err = s.Client.RemoveClientIDFromOpenIDConnectProvider(&iam.RemoveClientIDFromOpenIDConnectProviderInput{
-						ClientID:                 &remove,
+						ClientID:                 aws.String(remove),
 						OpenIDConnectProviderArn: &arn,
 					})
 					if err != nil {
