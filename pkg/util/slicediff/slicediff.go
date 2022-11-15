@@ -33,8 +33,8 @@ func DiffIgnoreCase(src []*string, dst []*string) DiffResponse {
 	}
 
 	return DiffResponse{
-		Added:   difference(srcVal, dstVal),
-		Removed: difference(dstVal, srcVal),
+		Added:   difference(dstVal, srcVal),
+		Removed: difference(srcVal, dstVal),
 	}
 }
 
