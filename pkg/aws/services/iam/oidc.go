@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
@@ -21,21 +23,28 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		return microerror.Mask(err)
 	}
 
-	// Ensure there is one provider for each of the URLs
+	thumbprints := make([]*string, 0)
 	for _, identityProviderURL := range identityProviderURLs {
 		tp, err := caThumbPrint(identityProviderURL)
 		if err != nil {
 			return err
 		}
 
+		thumbprints = append(thumbprints, &tp)
+	}
+
+	// Ensure there is one provider for each of the URLs
+	for _, identityProviderURL := range identityProviderURLs {
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
 			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
-				// Check if values are up to date.
-				if len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
-					len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
 
+				thumbprintsChanged := sliceEqualsIgnoreCase(existing.ThumbprintList, thumbprints)
+				clientidsChanged := sliceEqualsIgnoreCase(existing.ClientIDList, []*string{&clientID})
+
+				// Check if values are up to date.
+				if thumbprintsChanged || clientidsChanged {
 					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s needs to be replaced", identityProviderURL))
 					s.scope.Info("Deleting OIDCProvider")
 					_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
@@ -59,7 +68,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 
 		i := &iam.CreateOpenIDConnectProviderInput{
 			Url:            aws.String(identityProviderURL),
-			ThumbprintList: []*string{aws.String(tp)},
+			ThumbprintList: thumbprints,
 			ClientIDList:   []*string{aws.String(clientID)},
 		}
 
@@ -204,4 +213,27 @@ func caThumbPrint(ep string) (string, error) {
 		return "", err
 	}
 	return strings.Replace(fp.SHA1, ":", "", -1), nil
+}
+
+func sliceEqualsIgnoreCase(src []*string, dst []*string) bool {
+	srcVal := make([]string, 0)
+	dstVal := make([]string, 0)
+
+	for _, s := range src {
+		if s == nil {
+			srcVal = append(srcVal, "")
+		} else {
+			srcVal = append(srcVal, strings.ToLower(*s))
+		}
+	}
+	for _, d := range dst {
+		if d == nil {
+			dstVal = append(dstVal, "")
+		} else {
+			dstVal = append(dstVal, strings.ToLower(*d))
+		}
+	}
+
+	less := func(a, b string) bool { return a < b }
+	return cmp.Diff(srcVal, dstVal, cmpopts.SortSlices(less)) == ""
 }
