@@ -1,22 +1,34 @@
 package util
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestMapsDiff(t *testing.T) {
-	m1 := map[string]string{
-		"a": "b",
-		"c": "d",
+func TestEnsureHTTPS(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "Has https",
+			url:  "https://test.io",
+			want: "https://test.io",
+		},
+		{
+			name: "Has http",
+			url:  "http://test.io",
+			want: "https://test.io",
+		},
+		{
+			name: "base dns name",
+			url:  "test.io",
+			want: "https://test.io",
+		},
 	}
-	m2 := map[string]string{
-		"a": "b",
-		"c": "d",
-		"e": "f",
-		"g": "h",
-	}
-	diff := MapsDiff(m1, m2)
-	if len(diff) != 2 {
-		t.Errorf("Expected two diff, got %v", len(diff))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EnsureHTTPS(tt.url); got != tt.want {
+				t.Errorf("EnsureHTTPS() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

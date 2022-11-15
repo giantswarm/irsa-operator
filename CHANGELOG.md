@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add new service to handle route53 DNS records.
 - Add new service to handle ACM certificates.
+- Use predictable domain alias for cloudfront on legacy clusters.
 
 ### Changed
 
 - Improve `oidc` service in order to recreate the OIDC provider on AWS when any config is changed.
 - Improve `cloudfront` service in order to update the cloudfront distribution on AWS when any config is changed.
+- Allow having multiple URLs in the `oidc` service.
 
 ## [0.8.5] - 2022-11-09
 

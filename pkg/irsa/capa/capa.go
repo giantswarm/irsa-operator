@@ -29,7 +29,6 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
-	"github.com/giantswarm/irsa-operator/pkg/util"
 )
 
 type Service struct {
@@ -286,36 +285,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			identityProviderURL = fmt.Sprintf("https://%s/%s", s3Endpoint, s.Scope.BucketName())
 		}
 
-		return s.IAM.EnsureOIDCProvider(identityProviderURL, key.STSUrl(s.Scope.Region()))
+		return s.IAM.EnsureOIDCProviders([]string{identityProviderURL}, key.STSUrl(s.Scope.Region()), customerTags)
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to create OIDC provider")
 		return err
-	}
-
-	err = s.IAM.CreateOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), customerTags)
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to create tags")
-		return err
-	}
-
-	oidcTags, err := s.IAM.ListCustomerOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to list OIDC provider tags")
-		return err
-	}
-
-	if diff := util.MapsDiff(customerTags, oidcTags); diff != nil {
-		s.Scope.Logger.Info("Cluster tags differ from current OIDC tags")
-		if err := s.IAM.RemoveOIDCTags(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region(), diff); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to remove tags")
-			return microerror.Mask(err)
-		}
 	}
 
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
@@ -337,7 +313,6 @@ func (s *Service) Delete(ctx context.Context) error {
 		return err
 	}
 
-	var cfDomain string
 	var cfDistributionId string
 	var cfOriginAccessIdentityId string
 	cfConfig := &v1.Secret{}
@@ -353,12 +328,11 @@ func (s *Service) Delete(ctx context.Context) error {
 		}
 
 		data := cfConfig.Data
-		cfDomain = string(data["domain"])
 		cfDistributionId = string(data["distributionId"])
 		cfOriginAccessIdentityId = string(data["originAccessIdentityId"])
 	}
 
-	err = s.IAM.DeleteOIDCProvider(s.Scope.Release(), cfDomain, s.Scope.AccountID(), s.Scope.BucketName(), s.Scope.Region())
+	err = s.IAM.DeleteOIDCProviders()
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
