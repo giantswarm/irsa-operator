@@ -9,12 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
+	"github.com/giantswarm/irsa-operator/pkg/util/slicediff"
 )
 
 func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
@@ -39,19 +38,34 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		found := false
 		for arn, existing := range providers {
 			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
-				thumbprintsChanged := !sliceEqualsIgnoreCase(existing.ThumbprintList, thumbprints)
-				clientidsChanged := !sliceEqualsIgnoreCase(existing.ClientIDList, []*string{&clientID})
+				found = true
+				thumbprintsDiff := slicediff.DiffIgnoreCase(existing.ThumbprintList, thumbprints)
+				clientidsDiff := slicediff.DiffIgnoreCase(existing.ClientIDList, []*string{&clientID})
 
-				if clientidsChanged {
-					// There is no API call to update the client ID, only option is to recreate the whole provider.
-					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s needs to be replaced", identityProviderURL))
-					s.scope.Info("Deleting OIDCProvider")
-					_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
+				for _, add := range clientidsDiff.Added {
+					s.scope.Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
+					_, err = s.Client.AddClientIDToOpenIDConnectProvider(&iam.AddClientIDToOpenIDConnectProviderInput{
+						ClientID:                 &add,
+						OpenIDConnectProviderArn: &arn,
+					})
 					if err != nil {
 						return microerror.Mask(err)
 					}
-					s.scope.Info("Deleted OIDCProvider")
-				} else if thumbprintsChanged {
+					s.scope.Info(fmt.Sprintf("Added client id %s to OIDCProvider for URL %s", add, identityProviderURL))
+				}
+				for _, remove := range clientidsDiff.Removed {
+					s.scope.Info(fmt.Sprintf("Removing client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+					_, err = s.Client.RemoveClientIDFromOpenIDConnectProvider(&iam.RemoveClientIDFromOpenIDConnectProviderInput{
+						ClientID:                 &remove,
+						OpenIDConnectProviderArn: &arn,
+					})
+					if err != nil {
+						return microerror.Mask(err)
+					}
+					s.scope.Info(fmt.Sprintf("Removed client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+				}
+
+				if thumbprintsDiff.Changed() {
 					s.scope.Info(fmt.Sprintf("Updating thumbprints on OIDCProvider for URL %s", identityProviderURL))
 					_, err := s.Client.UpdateOpenIDConnectProviderThumbprint(&iam.UpdateOpenIDConnectProviderThumbprintInput{
 						OpenIDConnectProviderArn: &arn,
@@ -61,10 +75,9 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 						return microerror.Mask(err)
 					}
 					s.scope.Info(fmt.Sprintf("Updated thumbprints on OIDCProvider for URL %s", identityProviderURL))
-					found = true
+
 				} else {
 					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
-					found = true
 				}
 				break
 			}
@@ -223,27 +236,4 @@ func caThumbPrint(ep string) (string, error) {
 		return "", err
 	}
 	return strings.Replace(fp.SHA1, ":", "", -1), nil
-}
-
-func sliceEqualsIgnoreCase(src []*string, dst []*string) bool {
-	srcVal := make([]string, 0)
-	dstVal := make([]string, 0)
-
-	for _, s := range src {
-		if s == nil {
-			srcVal = append(srcVal, "")
-		} else {
-			srcVal = append(srcVal, strings.ToLower(*s))
-		}
-	}
-	for _, d := range dst {
-		if d == nil {
-			dstVal = append(dstVal, "")
-		} else {
-			dstVal = append(dstVal, strings.ToLower(*d))
-		}
-	}
-
-	less := func(a, b string) bool { return a < b }
-	return cmp.Diff(srcVal, dstVal, cmpopts.SortSlices(less)) == ""
 }
