@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"reflect"
@@ -107,6 +108,37 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	customerTags := key.GetCustomerTags(cluster)
 
+	// Get BaseDomain from the cluster values cm.
+	var baseDomain string
+	{
+		cm := v1.ConfigMap{}
+		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName())}, &cm)
+		if err != nil {
+			return err
+		}
+
+		jsonStr := cm.Data["values"]
+		if jsonStr == "" {
+			return microerror.Mask(clusterValuesConfigMapNotFound)
+		}
+
+		type clusterValues struct {
+			BaseDomain string `json:"baseDomain"`
+		}
+
+		cv := clusterValues{}
+
+		err = json.Unmarshal([]byte(jsonStr), &cv)
+		if err != nil {
+			return err
+		}
+
+		baseDomain = cv.BaseDomain
+		if baseDomain == "" {
+			return microerror.Mask(baseDomainNotFound)
+		}
+	}
+
 	var cloudfrontAliasDomain string
 
 	awscluster := &v1alpha3.AWSCluster{}
@@ -118,7 +150,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	} else {
 		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
 		if private != "private" {
-			cloudfrontAliasDomain = key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+			cloudfrontAliasDomain = key.CloudFrontAlias(baseDomain)
 		}
 	}
 
@@ -153,7 +185,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err = s.Route53.FindHostedZone(key.BaseDomain(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()))
+			hostedZoneID, err = s.Route53.FindHostedZone(baseDomain)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
