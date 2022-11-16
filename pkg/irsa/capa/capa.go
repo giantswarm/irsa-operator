@@ -109,49 +109,11 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	customerTags := key.GetCustomerTags(cluster)
 
 	// Get BaseDomain from the cluster values cm.
-	var baseDomain string
-	{
-		cm := v1.ConfigMap{}
-		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName())}, &cm)
-		if err != nil {
-			return err
-		}
+	baseDomain, err := s.getBaseDomain(ctx)
 
-		jsonStr := cm.Data["values"]
-		if jsonStr == "" {
-			return microerror.Mask(clusterValuesConfigMapNotFound)
-		}
-
-		type clusterValues struct {
-			BaseDomain string `json:"baseDomain"`
-		}
-
-		cv := clusterValues{}
-
-		err = json.Unmarshal([]byte(jsonStr), &cv)
-		if err != nil {
-			return err
-		}
-
-		baseDomain = cv.BaseDomain
-		if baseDomain == "" {
-			return microerror.Mask(baseDomainNotFound)
-		}
-	}
-
-	var cloudfrontAliasDomain string
-
-	awscluster := &v1alpha3.AWSCluster{}
-	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
-	if apierrors.IsNotFound(err) {
-		// fallthrough
-	} else if err != nil {
+	cloudfrontAliasDomain, err := s.getCloudFrontAliasDomain(ctx, baseDomain)
+	if err != nil {
 		return err
-	} else {
-		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
-		if private != "private" {
-			cloudfrontAliasDomain = key.CloudFrontAlias(baseDomain)
-		}
 	}
 
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
@@ -311,7 +273,11 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	cfOaiId = data["originAccessIdentityId"]
 
 	uploadFiles := func() error {
-		return s.S3.UploadFiles(s.Scope.Release(), cfDomain, s.Scope.BucketName(), privateKey)
+		domain := cfDomain
+		if len(aliases) > 0 {
+			domain = *aliases[0]
+		}
+		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
 	}
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
@@ -442,6 +408,22 @@ func (s *Service) Delete(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "failed to delete OIDC cloudfront config map for cluster")
 			return microerror.Mask(err)
 		}
+
+		baseDomain, err := s.getBaseDomain(ctx)
+		if err != nil {
+			return err
+		}
+
+		cloudFrontAliasDomain, err := s.getCloudFrontAliasDomain(ctx, baseDomain)
+		if err != nil {
+			return err
+		}
+
+		err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
+		if err != nil {
+			s.Scope.Logger.Error(err, "error deleting ACM certificate")
+			return err
+		}
 	}
 
 	ctrlmetrics.Errors.DeleteLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace())
@@ -463,4 +445,51 @@ func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, er
 		return nil, err
 	}
 	return privateKey, nil
+}
+
+func (s *Service) getBaseDomain(ctx context.Context) (string, error) {
+	cm := v1.ConfigMap{}
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName())}, &cm)
+	if err != nil {
+		return "", err
+	}
+
+	jsonStr := cm.Data["values"]
+	if jsonStr == "" {
+		return "", microerror.Mask(clusterValuesConfigMapNotFound)
+	}
+
+	type clusterValues struct {
+		BaseDomain string `json:"baseDomain"`
+	}
+
+	cv := clusterValues{}
+
+	err = json.Unmarshal([]byte(jsonStr), &cv)
+	if err != nil {
+		return "", err
+	}
+
+	baseDomain := cv.BaseDomain
+	if baseDomain == "" {
+		return "", microerror.Mask(baseDomainNotFound)
+	}
+
+	return baseDomain, nil
+}
+
+func (s *Service) getCloudFrontAliasDomain(ctx context.Context, baseDomain string) (string, error) {
+	awscluster := &v1alpha3.AWSCluster{}
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, awscluster)
+	if apierrors.IsNotFound(err) {
+		// fallthrough
+	} else if err != nil {
+		return "", err
+	} else {
+		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
+		if private != "private" {
+			return key.CloudFrontAlias(baseDomain), nil
+		}
+	}
+	return "", nil
 }
