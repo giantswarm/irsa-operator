@@ -102,6 +102,11 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
+	baseDomain, err := key.BaseDomain(*cluster)
+	if err != nil {
+		return err
+	}
+
 	customerTags := key.GetCustomerTags(cluster)
 	aliases := make([]*string, 0)
 	cloudfrontCertificateARN := ""
@@ -116,7 +121,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
 		var hostedZoneID string
-		cloudfrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		cloudfrontAliasDomain := key.CloudFrontAlias(baseDomain)
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
 			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
@@ -134,7 +139,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err = s.Route53.FindHostedZone(key.BaseDomain(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region()))
+			hostedZoneID, err = s.Route53.FindHostedZone(baseDomain)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
@@ -237,7 +242,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			return err
 		}
 
-		// Ensure CM is up to date
+		// Ensure CM is up-to-date.
 		if reflect.DeepEqual(cfConfig.Data, data) {
 			s.Scope.Logger.Info("Configmap is already up to date")
 		} else {
@@ -321,7 +326,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (s Service) Delete(ctx context.Context) error {
+func (s *Service) Delete(ctx context.Context) error {
 	err := s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
@@ -404,7 +409,21 @@ func (s Service) Delete(ctx context.Context) error {
 			return err
 		}
 
-		cloudFrontAliasDomain := key.CloudFrontAlias(s.Scope.ClusterName(), s.Scope.Installation(), s.Scope.Region())
+		// Fetch custom tags from Cluster CR
+		cluster := &capi.Cluster{}
+		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
+		if apierrors.IsNotFound(err) {
+			// fallthrough
+		} else if err != nil {
+			return err
+		}
+
+		baseDomain, err := key.BaseDomain(*cluster)
+		if err != nil {
+			return err
+		}
+
+		cloudFrontAliasDomain := key.CloudFrontAlias(baseDomain)
 		if cloudFrontAliasDomain != "" {
 			err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
 			if err != nil {
@@ -431,7 +450,7 @@ func (s Service) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (s Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, error) {
+func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, error) {
 	oidcSecret := &v1.Secret{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.SecretName()}, oidcSecret)
 	if apierrors.IsNotFound(err) {
