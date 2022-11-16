@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/giantswarm/microerror"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -100,12 +101,19 @@ func CloudFrontDistributionComment(clusterID string) string {
 	return fmt.Sprintf("Created by irsa-operator for cluster %s", clusterID)
 }
 
-func CloudFrontAlias(clusterID string, installation string, region string) string {
-	return fmt.Sprintf("irsa.%s", BaseDomain(clusterID, installation, region))
+func CloudFrontAlias(baseDomain string) string {
+	return fmt.Sprintf("irsa.%s", baseDomain)
 }
 
-func BaseDomain(clusterID string, installation string, region string) string {
-	return fmt.Sprintf("%s.k8s.%s.%s.aws.gigantic.io", clusterID, installation, region)
+func BaseDomain(cluster capi.Cluster) (string, error) {
+	apiEndpoint := cluster.Spec.ControlPlaneEndpoint.Host
+	if apiEndpoint == "" {
+		return "", microerror.Mask(missingApiEndpointError)
+	}
+	if !strings.HasPrefix(apiEndpoint, "api.") {
+		return "", microerror.Mask(unexpectedApiEndpointError)
+	}
+	return strings.TrimPrefix(apiEndpoint, "api."), nil
 }
 
 func EnsureTrailingDot(domain string) string {
