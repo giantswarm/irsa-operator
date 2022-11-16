@@ -13,6 +13,7 @@ import (
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
+	"github.com/giantswarm/irsa-operator/pkg/util/slicediff"
 )
 
 func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
@@ -21,37 +22,68 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		return microerror.Mask(err)
 	}
 
-	// Ensure there is one provider for each of the URLs
+	thumbprints := make([]*string, 0)
 	for _, identityProviderURL := range identityProviderURLs {
 		tp, err := caThumbPrint(identityProviderURL)
 		if err != nil {
 			return err
 		}
 
+		thumbprints = append(thumbprints, &tp)
+	}
+
+	// Ensure there is one provider for each of the URLs
+	for _, identityProviderURL := range identityProviderURLs {
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
 			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURL) {
-				// Check if values are up to date.
-				if len(existing.ThumbprintList) != 1 || !strings.EqualFold(*existing.ThumbprintList[0], strings.ToLower(tp)) ||
-					len(existing.ClientIDList) != 1 || *existing.ClientIDList[0] != clientID {
+				found = true
+				thumbprintsDiff := slicediff.DiffIgnoreCase(existing.ThumbprintList, thumbprints)
+				clientidsDiff := slicediff.DiffIgnoreCase(existing.ClientIDList, []*string{&clientID})
 
-					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s needs to be replaced", identityProviderURL))
-					s.scope.Info("Deleting OIDCProvider")
-					_, err = s.Client.DeleteOpenIDConnectProvider(&iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: aws.String(arn)})
+				for _, add := range clientidsDiff.Added {
+					s.scope.Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
+					_, err = s.Client.AddClientIDToOpenIDConnectProvider(&iam.AddClientIDToOpenIDConnectProviderInput{
+						ClientID:                 aws.String(add),
+						OpenIDConnectProviderArn: &arn,
+					})
 					if err != nil {
 						return microerror.Mask(err)
 					}
-					s.scope.Info("Deleted OIDCProvider")
-				} else {
-					found = true
-					break
+					s.scope.Info(fmt.Sprintf("Added client id %s to OIDCProvider for URL %s", add, identityProviderURL))
 				}
+				for _, remove := range clientidsDiff.Removed {
+					s.scope.Info(fmt.Sprintf("Removing client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+					_, err = s.Client.RemoveClientIDFromOpenIDConnectProvider(&iam.RemoveClientIDFromOpenIDConnectProviderInput{
+						ClientID:                 aws.String(remove),
+						OpenIDConnectProviderArn: &arn,
+					})
+					if err != nil {
+						return microerror.Mask(err)
+					}
+					s.scope.Info(fmt.Sprintf("Removed client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+				}
+
+				if thumbprintsDiff.Changed() {
+					s.scope.Info(fmt.Sprintf("Updating thumbprints on OIDCProvider for URL %s", identityProviderURL))
+					_, err := s.Client.UpdateOpenIDConnectProviderThumbprint(&iam.UpdateOpenIDConnectProviderThumbprintInput{
+						OpenIDConnectProviderArn: &arn,
+						ThumbprintList:           thumbprints,
+					})
+					if err != nil {
+						return microerror.Mask(err)
+					}
+					s.scope.Info(fmt.Sprintf("Updated thumbprints on OIDCProvider for URL %s", identityProviderURL))
+
+				} else {
+					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
+				}
+				break
 			}
 		}
 
 		if found {
-			s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
 			continue
 		}
 
@@ -59,7 +91,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 
 		i := &iam.CreateOpenIDConnectProviderInput{
 			Url:            aws.String(identityProviderURL),
-			ThumbprintList: []*string{aws.String(tp)},
+			ThumbprintList: thumbprints,
 			ClientIDList:   []*string{aws.String(clientID)},
 		}
 
