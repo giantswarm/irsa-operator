@@ -110,6 +110,9 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// Get BaseDomain from the cluster values cm.
 	baseDomain, err := s.getBaseDomain(ctx)
+	if err != nil {
+		return err
+	}
 
 	cloudfrontAliasDomain, err := s.getCloudFrontAliasDomain(ctx, baseDomain)
 	if err != nil {
