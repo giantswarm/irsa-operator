@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"reflect"
@@ -16,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -463,12 +463,12 @@ func (s *Service) getBaseDomain(ctx context.Context) (string, error) {
 	}
 
 	type clusterValues struct {
-		BaseDomain string `json:"baseDomain"`
+		BaseDomain string `yaml:"baseDomain"`
 	}
 
 	cv := clusterValues{}
 
-	err = json.Unmarshal([]byte(jsonStr), &cv)
+	err = yaml.Unmarshal([]byte(jsonStr), &cv)
 	if err != nil {
 		return "", err
 	}
