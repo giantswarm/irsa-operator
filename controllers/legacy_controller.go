@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
@@ -226,6 +225,6 @@ func (r *LegacyClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *LegacyClusterReconciler) sendEvent(cluster *v1alpha3.AWSCluster, eventtype, reason, message string) {
+func (r *LegacyClusterReconciler) sendEvent(cluster *infrastructurev1alpha3.AWSCluster, eventtype, reason, message string) {
 	r.recorder.Event(cluster, eventtype, reason, message)
 }

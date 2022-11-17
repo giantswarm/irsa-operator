@@ -16,8 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
-
+	"sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -482,7 +481,7 @@ func (s *Service) getBaseDomain(ctx context.Context) (string, error) {
 }
 
 func (s *Service) getCloudFrontAliasDomain(ctx context.Context, baseDomain string) (string, error) {
-	awscluster := &v1alpha3.AWSCluster{}
+	awscluster := &v1beta1.AWSCluster{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, awscluster)
 	if apierrors.IsNotFound(err) {
 		// fallthrough
