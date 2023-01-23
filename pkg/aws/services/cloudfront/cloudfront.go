@@ -53,8 +53,6 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		return nil, err
 	}
 
-	s.scope.Info("BLAH")
-
 	diff, err := s.checkDiff(d, config)
 	if err != nil {
 		s.scope.Error(err, "Error checking if cloudfront distribution needs to be updated")

@@ -233,7 +233,7 @@ func (s *Service) DeleteOIDCProviders() error {
 }
 
 func caThumbPrint(ep string) (string, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", ep), &tls.Config{}) //nolint:gosec
+	conn, err := tls.Dial("tcp", util.TrimHTTPS(fmt.Sprintf("%s:443", ep)), &tls.Config{}) //nolint:gosec
 	if err != nil {
 		return "", microerror.Mask(err)
 	}
