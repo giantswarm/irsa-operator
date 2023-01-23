@@ -225,11 +225,8 @@ func (s *Service) findDistribution() (*Distribution, error) {
 
 	// If output is nil, means we have to request the very first page of results.
 	for output == nil || marker != "" {
-		s.scope.Info("Making api request")
-
 		if output != nil && output.DistributionList != nil && output.DistributionList.Marker != nil && *output.DistributionList.Marker != "" {
 			marker = *output.DistributionList.Marker
-			s.scope.Info("marker not nil", "marker", marker)
 		}
 		output, err = s.Client.ListDistributions(&cloudfront.ListDistributionsInput{Marker: &marker})
 		if err != nil {
