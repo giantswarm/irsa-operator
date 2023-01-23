@@ -53,6 +53,8 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		return nil, err
 	}
 
+	s.scope.Info("BLAH")
+
 	diff, err := s.checkDiff(d, config)
 	if err != nil {
 		s.scope.Error(err, "Error checking if cloudfront distribution needs to be updated")
@@ -223,9 +225,11 @@ func (s *Service) findDistribution() (*Distribution, error) {
 	// If Marker is not nil, there is another page of results to be requested.
 	// If output is nil, means we have to request the very first page of results.
 	for output == nil || output.DistributionList.Marker != nil {
+		s.scope.Info("Making api request")
 		var marker *string
 		if output != nil && output.DistributionList != nil {
 			marker = output.DistributionList.Marker
+			s.scope.Info("marker not nil")
 		}
 		output, err = s.Client.ListDistributions(&cloudfront.ListDistributionsInput{Marker: marker})
 		if err != nil {
