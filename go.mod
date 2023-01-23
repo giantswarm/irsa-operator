@@ -9,7 +9,6 @@ require (
 	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.0
 	github.com/go-logr/logr v1.2.2
-	github.com/nhalstead/sprint v1.0.6
 	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0

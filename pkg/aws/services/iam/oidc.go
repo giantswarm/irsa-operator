@@ -1,6 +1,9 @@
 package iam
 
 import (
+	"bytes"
+	"crypto/sha1"
+	"crypto/tls"
 	"fmt"
 	"strings"
 
@@ -9,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
-	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
@@ -231,9 +233,23 @@ func (s *Service) DeleteOIDCProviders() error {
 }
 
 func caThumbPrint(ep string) (string, error) {
-	fp, err := sprint.GetFingerprint(ep, false)
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", ep), &tls.Config{})
 	if err != nil {
-		return "", err
+		return "", microerror.Mask(err)
 	}
-	return strings.Replace(fp.SHA1, ":", "", -1), nil
+	defer conn.Close()
+
+	var fingerprint [20]byte
+	// Get the latest Root CA from Certificate Chain
+	for _, peers := range conn.ConnectionState().PeerCertificates {
+		if peers.IsCA {
+			fingerprint = sha1.Sum(peers.Raw)
+		}
+	}
+
+	var buf bytes.Buffer
+	for _, f := range fingerprint {
+		fmt.Fprintf(&buf, "%02X", f)
+	}
+	return strings.ToLower(buf.String()), nil
 }
