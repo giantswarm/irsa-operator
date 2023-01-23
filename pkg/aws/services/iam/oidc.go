@@ -25,10 +25,18 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 	}
 
 	thumbprints := make([]*string, 0)
+OUTER:
 	for _, identityProviderURL := range identityProviderURLs {
 		tp, err := caThumbPrint(identityProviderURL)
 		if err != nil {
 			return err
+		}
+
+		// avoid duplicates
+		for _, existing := range thumbprints {
+			if *existing == tp {
+				continue OUTER
+			}
 		}
 
 		thumbprints = append(thumbprints, &tp)
