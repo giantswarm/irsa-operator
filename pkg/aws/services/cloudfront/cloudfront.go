@@ -227,7 +227,7 @@ func (s *Service) findDistribution() (*Distribution, error) {
 	for output == nil || output.DistributionList.Marker != nil {
 		s.scope.Info("Making api request")
 		var marker *string
-		if output != nil && output.DistributionList != nil && output.DistributionList.Marker != nil {
+		if output != nil && output.DistributionList != nil && output.DistributionList.Marker != nil && *output.DistributionList.Marker != "" {
 			marker = output.DistributionList.Marker
 			s.scope.Info("marker not nil", "marker", *marker)
 		}
@@ -241,7 +241,6 @@ func (s *Service) findDistribution() (*Distribution, error) {
 		}
 
 		for _, d := range output.DistributionList.Items {
-			s.scope.Info("Checking", "domain", *d.DomainName)
 			// There are no tags in this API response, so we have to match on the Comment :(
 			if *d.Comment == key.CloudFrontDistributionComment(s.scope.ClusterName()) {
 				// This is something like origin-access-identity/cloudfront/E2IB68Y7SJQAKJ
