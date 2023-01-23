@@ -161,9 +161,11 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 		if existing != nil && existing.NextToken != nil && *existing.NextToken != "" {
 			nextToken = *existing.NextToken
 		}
-		existing, err = s.Client.ListCertificates(&acm.ListCertificatesInput{
-			NextToken: &nextToken,
-		})
+		input := &acm.ListCertificatesInput{}
+		if nextToken != "" {
+			input.NextToken = &nextToken
+		}
+		existing, err = s.Client.ListCertificates(input)
 		if err != nil {
 			return nil, microerror.Mask(err)
 		}
