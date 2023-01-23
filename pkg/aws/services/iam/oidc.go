@@ -2,7 +2,7 @@ package iam
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec
 	"crypto/tls"
 	"fmt"
 	"strings"
@@ -233,7 +233,7 @@ func (s *Service) DeleteOIDCProviders() error {
 }
 
 func caThumbPrint(ep string) (string, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", ep), &tls.Config{})
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", ep), &tls.Config{}) //nolint:gosec
 	if err != nil {
 		return "", microerror.Mask(err)
 	}
@@ -243,7 +243,7 @@ func caThumbPrint(ep string) (string, error) {
 	// Get the latest Root CA from Certificate Chain
 	for _, peers := range conn.ConnectionState().PeerCertificates {
 		if peers.IsCA {
-			fingerprint = sha1.Sum(peers.Raw)
+			fingerprint = sha1.Sum(peers.Raw) //nolint:gosec
 		}
 	}
 
