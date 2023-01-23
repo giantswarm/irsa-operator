@@ -153,14 +153,16 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 
 	// NextToken is the way AWS API performs pagination over results.
 	// If NextToken is not nil, there is another page of results to be requested.
+
+	var nextToken string
+
 	// If existing is nil, means we have to request the very first page of results.
-	for existing == nil || existing.NextToken != nil {
-		var nextToken *string
-		if existing != nil {
-			nextToken = existing.NextToken
+	for existing == nil || nextToken != "" {
+		if existing != nil && existing.NextToken != nil && *existing.NextToken != "" {
+			nextToken = *existing.NextToken
 		}
 		existing, err = s.Client.ListCertificates(&acm.ListCertificatesInput{
-			NextToken: nextToken,
+			NextToken: &nextToken,
 		})
 		if err != nil {
 			return nil, microerror.Mask(err)
