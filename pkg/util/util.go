@@ -15,6 +15,14 @@ func EnsureHTTPS(url string) string {
 	return fmt.Sprintf("https://%s", url)
 }
 
+func TrimHTTPS(url string) string {
+	if strings.HasPrefix(url, "https://") {
+		return strings.TrimPrefix(url, "https://")
+	}
+
+	return url
+}
+
 func RemoveOrg(name string) string {
 	return strings.Replace(name, "org-", "", 1)
 }
