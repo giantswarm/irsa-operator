@@ -221,13 +221,14 @@ func (s *Service) findDistribution() (*Distribution, error) {
 
 	// Marker is the way AWS API performs pagination over results.
 	// If Marker is not nil, there is another page of results to be requested.
+	var marker string
+
 	// If output is nil, means we have to request the very first page of results.
-	for output == nil || output.DistributionList.Marker != nil {
-		var marker *string
-		if output != nil && output.DistributionList != nil {
-			marker = output.DistributionList.Marker
+	for output == nil || marker != "" {
+		if output != nil && output.DistributionList != nil && output.DistributionList.Marker != nil && *output.DistributionList.Marker != "" {
+			marker = *output.DistributionList.Marker
 		}
-		output, err = s.Client.ListDistributions(&cloudfront.ListDistributionsInput{Marker: marker})
+		output, err = s.Client.ListDistributions(&cloudfront.ListDistributionsInput{Marker: &marker})
 		if err != nil {
 			return nil, microerror.Mask(err)
 		}
