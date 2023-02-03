@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve `cloudfront` service in order to update the cloudfront distribution on AWS when any config is changed.
 - Allow having multiple URLs in the `oidc` service.
 - Switch to capa `v1beta1`.
-- Use root CA certificate thumbprint rather than leaf certificate one.
+- Use both root CA and leaf certificate thumbprints rather than leaf certificate one only.
 
 ## [0.8.5] - 2022-11-09
 
