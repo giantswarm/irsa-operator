@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow having multiple URLs in the `oidc` service.
 - Switch to capa `v1beta1`.
 - Use both root CA and leaf certificate thumbprints rather than leaf certificate one only.
+- Modify the PSP to allow projected and secret volumes.
 
 ## [0.8.5] - 2022-11-09
 
