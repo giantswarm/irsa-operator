@@ -40,7 +40,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					continue OUTER
 				}
 			}
-			thumbprints = append(thumbprints, &tp)
+			thumbprints = append(thumbprints, &tp) //nolint:gosec
 		}
 	}
 
