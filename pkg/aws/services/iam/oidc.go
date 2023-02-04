@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
+	"github.com/nhalstead/sprint"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
@@ -25,21 +26,22 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 	}
 
 	thumbprints := make([]*string, 0)
-OUTER:
 	for _, identityProviderURL := range identityProviderURLs {
-		tp, err := caThumbPrint(identityProviderURL)
+		tps, err := caThumbPrints(identityProviderURL)
 		if err != nil {
 			return err
 		}
 
 		// avoid duplicates
-		for _, existing := range thumbprints {
-			if *existing == tp {
-				continue OUTER
+	OUTER:
+		for _, tp := range tps {
+			for _, existing := range thumbprints {
+				if *existing == tp {
+					continue OUTER
+				}
 			}
+			thumbprints = append(thumbprints, &tp) //nolint:gosec
 		}
-
-		thumbprints = append(thumbprints, &tp)
 	}
 
 	// Ensure there is one provider for each of the URLs
@@ -240,24 +242,41 @@ func (s *Service) DeleteOIDCProviders() error {
 	return nil
 }
 
-func caThumbPrint(ep string) (string, error) {
-	conn, err := tls.Dial("tcp", util.TrimHTTPS(fmt.Sprintf("%s:443", ep)), &tls.Config{}) //nolint:gosec
-	if err != nil {
-		return "", microerror.Mask(err)
-	}
-	defer conn.Close()
+func caThumbPrints(ep string) ([]string, error) {
+	ret := make([]string, 0)
 
-	var fingerprint [20]byte
-	// Get the latest Root CA from Certificate Chain
-	for _, peers := range conn.ConnectionState().PeerCertificates {
-		if peers.IsCA {
-			fingerprint = sha1.Sum(peers.Raw) //nolint:gosec
+	// Root CA certificate.
+	{
+		conn, err := tls.Dial("tcp", util.TrimHTTPS(fmt.Sprintf("%s:443", ep)), &tls.Config{}) //nolint:gosec
+		if err != nil {
+			return nil, microerror.Mask(err)
 		}
+		defer conn.Close()
+
+		var fingerprint [20]byte
+		// Get the latest Root CA from Certificate Chain
+		for _, peers := range conn.ConnectionState().PeerCertificates {
+			if peers.IsCA {
+				fingerprint = sha1.Sum(peers.Raw) //nolint:gosec
+			}
+		}
+
+		var buf bytes.Buffer
+		for _, f := range fingerprint {
+			fmt.Fprintf(&buf, "%02X", f)
+		}
+		ret = append(ret, strings.ToLower(buf.String()))
 	}
 
-	var buf bytes.Buffer
-	for _, f := range fingerprint {
-		fmt.Fprintf(&buf, "%02X", f)
+	// Leaf certificate (https://github.com/giantswarm/roadmap/issues/1937).
+	{
+		fp, err := sprint.GetFingerprint(ep, false)
+		if err != nil {
+			return nil, microerror.Mask(err)
+		}
+
+		ret = append(ret, strings.Replace(fp.SHA1, ":", "", -1))
 	}
-	return strings.ToLower(buf.String()), nil
+
+	return ret, nil
 }
