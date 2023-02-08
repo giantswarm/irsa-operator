@@ -111,7 +111,7 @@ func (s *Service) DeleteBucket(bucketName string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeNoSuchBucket:
-				s.scope.Info("Bucket do not exist, continue with deletion", "bucket", bucketName)
+				s.scope.Info("Bucket does not exist, continue with deletion", "bucket", bucketName)
 				return nil
 			}
 		}
