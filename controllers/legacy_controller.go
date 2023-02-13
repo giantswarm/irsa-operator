@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -168,53 +169,54 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = r.Update(ctx, cluster)
-		if errors.IsConflict(err) {
-			logger.Info("Failed to remove finalizer on AWSCluster CR, conflict trying to update object")
-			return ctrl.Result{}, nil
-		} else if err != nil {
-			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
-			return ctrl.Result{}, microerror.Mask(err)
+		patchHelper, err := patch.NewHelper(cluster, r.Client)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
+		err = patchHelper.Patch(ctx, cluster)
+		if err != nil {
+			logger.Error(err, "failed to remove finalizer from AWSCluster")
+			return ctrl.Result{}, err
+		}
+		logger.Info("successfully removed finalizer from AWSCluster")
+
 		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 
 		return ctrl.Result{}, nil
 
 	} else {
+		created := false
+		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
+			created = true
+
+			patchHelper, err := patch.NewHelper(cluster, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.AddFinalizer(cluster, key.FinalizerName)
+			err = patchHelper.Patch(ctx, cluster)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on AWSCluster")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("successfully added finalizer to AWSCluster")
+		}
+
 		err := irsaService.Reconcile(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-			logger.Error(err, "Cluster does not exist")
-			return ctrl.Result{}, microerror.Mask(err)
+
+		if created {
+			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
-		finalizers := cluster.GetFinalizers()
-		if key.ContainsFinalizer(finalizers, key.FinalizerName) {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: time.Minute * 5,
-			}, nil
-		}
-
-		controllerutil.AddFinalizer(cluster, key.FinalizerName)
-		err = r.Update(ctx, cluster)
-		if errors.IsConflict(err) {
-			logger.Info("Failed to add finalizer on AWSCluster CR, conflict trying to update object")
-			return ctrl.Result{}, nil
-		} else if err != nil {
-			logger.Error(err, "failed to add finalizer on AWSCluster CR")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
-		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
 	}
-
-	return ctrl.Result{
-		Requeue:      true,
-		RequeueAfter: time.Minute * 5,
-	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
