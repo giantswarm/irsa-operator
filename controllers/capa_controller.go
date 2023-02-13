@@ -63,10 +63,11 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
 
+	logger.Info("Reconciling AWSCluster")
+
 	cluster := &capa.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		logger.Info("Cluster no longer exists")
-		return ctrl.Result{}, microerror.Mask(err)
+		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
