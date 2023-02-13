@@ -26,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -70,22 +69,9 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, awsClusterRoleIdentity)
+	err = r.Get(ctx, types.NamespacedName{Name: cluster.Spec.IdentityRef.Name}, awsClusterRoleIdentity)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// fallback to "default" AWSClusterRole
-			err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "default"}, awsClusterRoleIdentity)
-			if err != nil {
-				logger.Error(err, "Default clusterrole does not exist")
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: time.Minute * 5,
-				}, nil
-			}
-		} else if err != nil {
-			logger.Error(err, "Unexpected error")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("failed to get AWSClusterRoleIdentity object %q: %w", cluster.Spec.IdentityRef.Name, err))
 	}
 
 	arn := awsClusterRoleIdentity.Spec.RoleArn
@@ -97,7 +83,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if accountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
-
 	}
 
 	// create the cluster scope.
