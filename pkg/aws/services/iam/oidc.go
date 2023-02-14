@@ -5,7 +5,9 @@ import (
 	"crypto/sha1" //nolint:gosec
 	"crypto/tls"
 	"fmt"
+	"net"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -13,6 +15,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
 	"github.com/nhalstead/sprint"
+	"github.com/pkg/errors"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
@@ -247,9 +250,10 @@ func caThumbPrints(ep string) ([]string, error) {
 
 	// Root CA certificate.
 	{
-		conn, err := tls.Dial("tcp", util.TrimHTTPS(fmt.Sprintf("%s:443", ep)), &tls.Config{}) //nolint:gosec
+		address := util.TrimHTTPS(fmt.Sprintf("%s:443", ep))
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", address, &tls.Config{MinVersion: tls.VersionTLS12})
 		if err != nil {
-			return nil, microerror.Mask(err)
+			return nil, microerror.Mask(errors.Wrapf(err, "failed to dial %s", address))
 		}
 		defer conn.Close()
 
