@@ -212,6 +212,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
+		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 5,
