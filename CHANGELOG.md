@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Use patch instead of update method for adding/removing finalizer
+- Add finalizer before reconciling
+- CAPA: Avoid deletion reconciliation if finalizer is already gone (busy loop)
+- CAPA: Look up `AWSClusterRoleIdentity` by the correct reference field instead of assuming it is named like the cluster or dangerously falling back to `default`
+
 ## [0.9.0] - 2023-02-08
 
 ### Added

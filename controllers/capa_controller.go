@@ -26,11 +26,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -63,29 +63,17 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
 
+	logger.Info("Reconciling AWSCluster")
+
 	cluster := &capa.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		logger.Info("Cluster no longer exists")
-		return ctrl.Result{}, microerror.Mask(err)
+		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, awsClusterRoleIdentity)
+	err = r.Get(ctx, types.NamespacedName{Name: cluster.Spec.IdentityRef.Name}, awsClusterRoleIdentity)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// fallback to "default" AWSClusterRole
-			err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "default"}, awsClusterRoleIdentity)
-			if err != nil {
-				logger.Error(err, "Default clusterrole does not exist")
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: time.Minute * 5,
-				}, nil
-			}
-		} else if err != nil {
-			logger.Error(err, "Unexpected error")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("failed to get AWSClusterRoleIdentity object %q: %w", cluster.Spec.IdentityRef.Name, err))
 	}
 
 	arn := awsClusterRoleIdentity.Spec.RoleArn
@@ -97,7 +85,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if accountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
-
 	}
 
 	// create the cluster scope.
@@ -124,57 +111,64 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	irsaService := irsaCapa.New(clusterScope, r.Client)
 
 	if cluster.DeletionTimestamp != nil {
+		finalizers := cluster.GetFinalizers()
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
+			return ctrl.Result{}, nil
+		}
+
 		err := irsaService.Delete(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-			logger.Error(err, "Cluster does not exist")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
-
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = r.Update(ctx, cluster)
+		patchHelper, err := patch.NewHelper(cluster, r.Client)
 		if err != nil {
-			logger.Error(err, "failed to remove finalizer on AWSCluster CR")
-			return ctrl.Result{}, microerror.Mask(err)
+			return ctrl.Result{}, err
 		}
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
+		err = patchHelper.Patch(ctx, cluster)
+		if err != nil {
+			logger.Error(err, "failed to remove finalizer from AWSCluster")
+			return ctrl.Result{}, err
+		}
+		logger.Info("successfully removed finalizer from AWSCluster")
+
 		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 
 		return ctrl.Result{}, nil
-
 	} else {
+		created := false
+		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
+			created = true
+
+			patchHelper, err := patch.NewHelper(cluster, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.AddFinalizer(cluster, key.FinalizerName)
+			err = patchHelper.Patch(ctx, cluster)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on AWSCluster")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("successfully added finalizer to AWSCluster")
+		}
+
 		err := irsaService.Reconcile(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-			logger.Error(err, "Cluster does not exist")
-			return ctrl.Result{}, microerror.Mask(err)
+
+		if created {
+			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
-		finalizers := cluster.GetFinalizers()
-		if key.ContainsFinalizer(finalizers, key.FinalizerName) {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: time.Minute * 5,
-			}, nil
-		}
-
-		controllerutil.AddFinalizer(cluster, key.FinalizerName)
-		err = r.Update(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "failed to add finalizer on AWSCluster CR")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
-		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
+		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 5,
+		}, nil
 	}
-
-	return ctrl.Result{
-		Requeue:      true,
-		RequeueAfter: time.Minute * 5,
-	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
