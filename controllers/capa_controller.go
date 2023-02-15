@@ -51,9 +51,9 @@ type CAPAClusterReconciler struct {
 	recorder     record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/finalizers,verbs=update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -97,8 +97,9 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ConfigName:       key.ConfigName(cluster.Name),
 		Installation:     r.Installation,
 		Region:           cluster.Spec.Region,
-		ReleaseVersion:   key.Release(cluster),
-		SecretName:       key.SecretName(cluster.Name),
+		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
+		ReleaseVersion: "v20.0.0-alpha1",
+		SecretName:     key.SecretName(cluster.Name),
 
 		Logger:  logger,
 		Cluster: cluster,
