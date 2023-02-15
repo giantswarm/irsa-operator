@@ -5,8 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-
 ## [Unreleased]
 
 ### Changed
@@ -15,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add finalizer before reconciling
 - CAPA: Avoid deletion reconciliation if finalizer is already gone (busy loop)
 - CAPA: Look up `AWSClusterRoleIdentity` by the correct reference field instead of assuming it is named like the cluster or dangerously falling back to `default`
+- Add timeout for getting TLS connection to identity provider
 
 ## [0.9.0] - 2023-02-08
 
