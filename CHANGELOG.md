@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2023-02-15
+
 ### Changed
 
 - Use patch instead of update method for adding/removing finalizer
@@ -189,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/giantswarm/irsa-operator/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/giantswarm/irsa-operator/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/giantswarm/irsa-operator/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/giantswarm/irsa-operator/compare/v0.8.3...v0.8.4
