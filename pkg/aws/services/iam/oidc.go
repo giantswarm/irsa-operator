@@ -268,6 +268,7 @@ func caThumbPrints(ep string) ([]string, error) {
 		if err != nil {
 			return nil, microerror.Mask(errors.Wrapf(err, "failed to get %s", ep))
 		}
+		defer resp.Body.Close()
 
 		var fingerprint [20]byte
 		// Get the latest Root CA from Certificate Chain
