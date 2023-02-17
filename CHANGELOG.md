@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use Proxy if set when getting OIDC CAThumbprint from Root CA.
+
 ## [0.9.1] - 2023-02-15
 
 ### Changed
