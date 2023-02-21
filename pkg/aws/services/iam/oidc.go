@@ -3,9 +3,10 @@ package iam
 import (
 	"bytes"
 	"crypto/sha1" //nolint:gosec
-	"crypto/tls"
 	"fmt"
-	"net"
+	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -250,16 +251,28 @@ func caThumbPrints(ep string) ([]string, error) {
 
 	// Root CA certificate.
 	{
-		address := util.TrimHTTPS(fmt.Sprintf("%s:443", ep))
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", address, &tls.Config{MinVersion: tls.VersionTLS12})
-		if err != nil {
-			return nil, microerror.Mask(errors.Wrapf(err, "failed to dial %s", address))
+		client := &http.Client{
+			Timeout: time.Second * 10,
 		}
-		defer conn.Close()
+
+		// check PROXY env
+		if v, ok := os.LookupEnv("HTTPS_PROXY"); ok {
+			proxy, err := url.Parse(v)
+			if err != nil {
+				return nil, microerror.Mask(err)
+			}
+			client.Transport = &http.Transport{Proxy: http.ProxyURL(proxy)}
+		}
+
+		resp, err := client.Get(ep)
+		if err != nil {
+			return nil, microerror.Mask(errors.Wrapf(err, "failed to get %s", ep))
+		}
+		defer resp.Body.Close()
 
 		var fingerprint [20]byte
 		// Get the latest Root CA from Certificate Chain
-		for _, peers := range conn.ConnectionState().PeerCertificates {
+		for _, peers := range resp.TLS.PeerCertificates {
 			if peers.IsCA {
 				fingerprint = sha1.Sum(peers.Raw) //nolint:gosec
 			}
