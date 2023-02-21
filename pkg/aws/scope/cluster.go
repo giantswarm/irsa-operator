@@ -76,6 +76,11 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		params.Logger = klogr.New()
 	}
 
+	releaseSemver, err := semver.Parse(params.ReleaseVersion)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse release version %q", params.ReleaseVersion)
+	}
+
 	session, err := sessionForRegion(params.Region)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create aws session")
@@ -103,6 +108,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		migration:        params.Migration,
 		region:           params.Region,
 		releaseVersion:   params.ReleaseVersion,
+		releaseSemver:    releaseSemver,
 		secretName:       params.SecretName,
 
 		Logger:  params.Logger,
@@ -123,6 +129,7 @@ type ClusterScope struct {
 	migration        bool
 	region           string
 	releaseVersion   string
+	releaseSemver    semver.Version
 	secretName       string
 
 	logr.Logger
@@ -190,8 +197,7 @@ func (s *ClusterScope) ReleaseVersion() string {
 
 // Release returns the semver version of the AWS cluster object.
 func (s *ClusterScope) Release() *semver.Version {
-	version, _ := semver.New(s.ReleaseVersion())
-	return version
+	return &s.releaseSemver
 }
 
 // SecretName returns the name of the OIDC secret from the cluster.
