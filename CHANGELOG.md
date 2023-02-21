@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix hardcoding release version to 20.0.0-alpha1 for CAPI clusters to ensure the correct bucket name is used. In 0.10.0, this did not work and by mistake, another bucket with the old naming was created and reconciled.
+
 ## [0.10.0] - 2023-02-21
 
 ### Changed

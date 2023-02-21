@@ -98,7 +98,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Installation:     r.Installation,
 		Region:           cluster.Spec.Region,
 		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
-		ReleaseVersion: "v20.0.0-alpha1",
+		ReleaseVersion: "20.0.0-alpha1",
 		SecretName:     key.SecretName(cluster.Name),
 
 		Logger:  logger,
