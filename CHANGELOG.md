@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Hardcode release version to v20.0.0-alpha1 on CAPI clusters, so that CAPI clusters can remove the release version label.
+
 ## [0.9.2] - 2023-02-17
 
 ### Fixed
@@ -22,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CAPA: Avoid deletion reconciliation if finalizer is already gone (busy loop)
 - CAPA: Look up `AWSClusterRoleIdentity` by the correct reference field instead of assuming it is named like the cluster or dangerously falling back to `default`
 - Add timeout for getting TLS connection to identity provider
-- Hardcode release version to v20.0.0-alpha1 on CAPI clusters, so that CAPI clusters can remove the release version label.
 
 ## [0.9.0] - 2023-02-08
 
