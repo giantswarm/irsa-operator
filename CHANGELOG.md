@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2023-02-22
+
 ### Fixed
 
 - Fix hardcoding release version to 20.0.0-alpha1 for CAPI clusters to ensure the correct bucket name is used. In 0.10.0, this did not work and by mistake, another bucket with the old naming was created and reconciled.
@@ -207,7 +209,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/giantswarm/irsa-operator/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/giantswarm/irsa-operator/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/giantswarm/irsa-operator/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/giantswarm/irsa-operator/compare/v0.9.0...v0.9.1
