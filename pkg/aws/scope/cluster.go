@@ -76,7 +76,8 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		params.Logger = klogr.New()
 	}
 
-	releaseSemver, err := semver.Parse(params.ReleaseVersion)
+	// `ParseTolerant` instead of `Parse` in case we ever mistakenly use the `v` version prefix or other non-strict format
+	releaseSemver, err := semver.ParseTolerant(params.ReleaseVersion)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse release version %q", params.ReleaseVersion)
 	}
