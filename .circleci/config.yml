@@ -65,24 +65,22 @@ workflows:
             tags:
               only: /^v.*/
 
-      # Customers have to adapt to IRSA before vintage can upgrade the operator version
-      # (https://github.com/giantswarm/giantswarm/issues/22689). Therefore, disable automated version bumps for now.
-      # - architect/push-to-app-collection:
-      #     name: aws-app-collection
-      #     context: "architect"
-      #     app_name: "irsa-operator"
-      #     app_namespace: "giantswarm"
-      #     app_collection_repo: "aws-app-collection"
-      #     requires:
-      #       - push-irsa-operator-to-quay
-      #       - push-irsa-operator-to-docker
-      #       - push-irsa-operator-to-aliyun
-      #       - push-irsa-operator-to-app-catalog
-      #     filters:
-      #       branches:
-      #         ignore: /.*/
-      #       tags:
-      #         only: /^v.*/
+      - architect/push-to-app-collection:
+          name: aws-app-collection
+          context: "architect"
+          app_name: "irsa-operator"
+          app_namespace: "giantswarm"
+          app_collection_repo: "aws-app-collection"
+          requires:
+            - push-irsa-operator-to-quay
+            - push-irsa-operator-to-docker
+            - push-irsa-operator-to-aliyun
+            - push-irsa-operator-to-app-catalog
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
 
       - architect/push-to-app-collection:
           context: architect
