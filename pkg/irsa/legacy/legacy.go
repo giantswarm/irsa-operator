@@ -211,7 +211,9 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				}
 			}
 
-			data["domainAlias"] = *aliases[0]
+			if key.IsV19Release(s.Scope.Release()) {
+				data["domainAlias"] = *aliases[0]
+			}
 		}
 
 		cfConfig := &v1.ConfigMap{}
