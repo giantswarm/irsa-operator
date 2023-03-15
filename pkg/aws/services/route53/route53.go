@@ -13,7 +13,15 @@ type CNAME struct {
 	Value string
 }
 
-func (s *Service) FindHostedZone(basename string) (string, error) {
+func (s *Service) FindPublicHostedZone(basename string) (string, error) {
+	return s.FindHostedZone(basename, true)
+}
+
+func (s *Service) FindPrivateHostedZone(basename string) (string, error) {
+	return s.FindHostedZone(basename, false)
+}
+
+func (s *Service) FindHostedZone(basename string, public bool) (string, error) {
 	s.scope.Info("Searching route53 hosted zone ID")
 
 	output, err := s.Client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{
@@ -23,9 +31,9 @@ func (s *Service) FindHostedZone(basename string) (string, error) {
 		return "", microerror.Mask(err)
 	}
 
-	// We return the first public zone
+	// We return the first zone found that matches the basename and is public or not according to the parameter.
 	for _, zone := range output.HostedZones {
-		if !*zone.Config.PrivateZone {
+		if public == !*zone.Config.PrivateZone {
 			return *zone.Id, nil
 		}
 	}

@@ -120,7 +120,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// Cloudfront only for non-China region and v18.x.x release or higher
 	if !key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
-		var hostedZoneID string
+		var publicHostedZoneID string
+		var privateHostedZoneID string
 		cloudfrontAliasDomain := key.CloudFrontAlias(baseDomain)
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
@@ -139,7 +140,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err = s.Route53.FindHostedZone(baseDomain)
+			publicHostedZoneID, err = s.Route53.FindPublicHostedZone(baseDomain)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
+				return err
+			}
+
+			privateHostedZoneID, err = s.Route53.FindPrivateHostedZone(baseDomain)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
@@ -166,7 +174,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 						return err
 					}
 
-					err = s.Route53.EnsureDNSRecord(hostedZoneID, *cname)
+					err = s.Route53.EnsureDNSRecord(publicHostedZoneID, *cname)
 					if err != nil {
 						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 						s.Scope.Logger.Error(err, "failed to create ACM certificate's validation DNS record")
@@ -200,14 +208,27 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			"originAccessIdentityId": distribution.OriginAccessIdentityId,
 		}
 
-		if len(aliases) > 0 && hostedZoneID != "" {
-			for _, alias := range aliases {
-				// Create IRSA Alias CNAME
-				err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
-				if err != nil {
-					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-					s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
-					return err
+		if len(aliases) > 0 {
+			if publicHostedZoneID != "" {
+				for _, alias := range aliases {
+					// Create IRSA Alias CNAME
+					err = s.Route53.EnsureDNSRecord(publicHostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+					if err != nil {
+						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+						s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record in the public zone")
+						return err
+					}
+				}
+			}
+			if privateHostedZoneID != "" {
+				for _, alias := range aliases {
+					// Create IRSA Alias CNAME
+					err = s.Route53.EnsureDNSRecord(privateHostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+					if err != nil {
+						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+						s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record in the private zone")
+						return err
+					}
 				}
 			}
 
