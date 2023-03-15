@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Create CNAME record in the private DNS zone as well in legacy.
+
 ## [0.11.1] - 2023-03-09
 
 ### Fixed
