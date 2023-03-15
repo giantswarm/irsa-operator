@@ -149,7 +149,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err = s.Route53.FindHostedZone(baseDomain)
+			hostedZoneID, err = s.Route53.FindPublicHostedZone(baseDomain)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
