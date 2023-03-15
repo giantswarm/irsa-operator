@@ -14,14 +14,14 @@ type CNAME struct {
 }
 
 func (s *Service) FindPublicHostedZone(basename string) (string, error) {
-	return s.FindHostedZone(basename, true)
+	return s.findHostedZone(basename, true)
 }
 
 func (s *Service) FindPrivateHostedZone(basename string) (string, error) {
-	return s.FindHostedZone(basename, false)
+	return s.findHostedZone(basename, false)
 }
 
-func (s *Service) FindHostedZone(basename string, public bool) (string, error) {
+func (s *Service) findHostedZone(basename string, public bool) (string, error) {
 	s.scope.Info("Searching route53 hosted zone ID")
 
 	output, err := s.Client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{
