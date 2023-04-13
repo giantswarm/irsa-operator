@@ -126,6 +126,26 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		cm := v1.ConfigMap{}
+		err = r.Client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: fmt.Sprintf("%s-cluster-values", req.Name)}, &cm)
+		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		if controllerutil.ContainsFinalizer(&cm, key.FinalizerName) {
+			patchHelper, err := patch.NewHelper(&cm, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.RemoveFinalizer(&cm, key.FinalizerName)
+			err = patchHelper.Patch(ctx, &cm)
+			if err != nil {
+				logger.Error(err, "failed to remove from configmap")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("successfully remoed finalizer from configmap")
+		}
+
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = patchHelper.Patch(ctx, cluster)
 		if err != nil {
@@ -155,7 +175,28 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Info("successfully added finalizer to AWSCluster")
 		}
 
-		err := irsaService.Reconcile(ctx)
+		cm := v1.ConfigMap{}
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: fmt.Sprintf("%s-cluster-values", req.Name)}, &cm)
+		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+
+		if !controllerutil.ContainsFinalizer(&cm, key.FinalizerName) {
+
+			patchHelper, err := patch.NewHelper(&cm, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.AddFinalizer(&cm, key.FinalizerName)
+			err = patchHelper.Patch(ctx, &cm)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on configmap")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("successfully added finalizer to configmap")
+		}
+
+		err = irsaService.Reconcile(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
