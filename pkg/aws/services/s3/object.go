@@ -49,7 +49,7 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 		},
 	}
 
-	s.scope.Info("Uploading files to bucket", "bucket", bucketName)
+	s.scope.Logger().Info("Uploading files to bucket", "bucket", bucketName)
 	for _, i := range files {
 		content := *i.Content
 		fileName := i.FileName
@@ -67,7 +67,7 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 		ho, err := s.Client.HeadObject(i0)
 		if ho.ETag != nil {
 			if strings.Replace(*ho.ETag, "\"", "", -1) != eTagCalc {
-				s.scope.Info(fmt.Sprintf("Hashdiff of object '%s' detected, reuploading", fileName), "bucket", bucketName)
+				s.scope.Logger().Info(fmt.Sprintf("Hashdiff of object '%s' detected, reuploading", fileName), "bucket", bucketName)
 				update = true
 			}
 
@@ -89,13 +89,13 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 			}
 			_, err = s.Client.PutObject(&input)
 			if err != nil {
-				s.scope.Info(fmt.Sprintf("failed to upload file: %v", err.Error()))
+				s.scope.Logger().Info(fmt.Sprintf("failed to upload file: %v", err.Error()))
 				return microerror.Mask(err)
 			}
-			s.scope.Info(fmt.Sprintf("Uploaded '%s'", fileName), "bucket", bucketName)
+			s.scope.Logger().Info(fmt.Sprintf("Uploaded '%s'", fileName), "bucket", bucketName)
 
 		} else {
-			s.scope.Info(fmt.Sprintf("File '%s', already exist, skipping the update", fileName), "bucket", bucketName)
+			s.scope.Logger().Info(fmt.Sprintf("File '%s', already exist, skipping the update", fileName), "bucket", bucketName)
 		}
 	}
 
@@ -122,14 +122,14 @@ func (s *Service) DeleteFiles(bucketName string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeNoSuchBucket:
-				s.scope.Info("Bucket does not exist, skipping files deletion", "bucket", bucketName)
+				s.scope.Logger().Info("Bucket does not exist, skipping files deletion", "bucket", bucketName)
 				return nil
 			case s3.ErrCodeNoSuchKey:
-				s.scope.Info("Files do not exist, continue with deletion", "bucket", bucketName)
+				s.scope.Logger().Info("Files do not exist, continue with deletion", "bucket", bucketName)
 			}
 		}
 		return err
 	}
-	s.scope.Info(fmt.Sprintf("Deleted %d files from bucket", len(objects)), "bucket", bucketName)
+	s.scope.Logger().Info(fmt.Sprintf("Deleted %d files from bucket", len(objects)), "bucket", bucketName)
 	return nil
 }

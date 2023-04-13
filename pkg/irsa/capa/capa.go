@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
+	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -63,10 +63,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	var cfDomain string
 	var cfOaiId string
 
-	s.Scope.Info("Reconciling AWSCluster CR for IRSA")
+	s.Scope.Logger().Info("Reconciling AWSCluster CR for IRSA")
 	privateKey, err := s.ServiceAccountSecret(ctx)
 	if apierrors.IsNotFound(err) {
-		s.Scope.Info("Service account is not ready yet, waiting ...")
+		s.Scope.Logger().Info("Service account is not ready yet, waiting ...")
 		return nil
 	} else if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to add finalizer on cluster values ConfigMap")
 		}
-		s.Scope.Logger.Info("successfully added finalizer to cluster values ConfigMap")
+		s.Scope.Logger().Info("successfully added finalizer to cluster values ConfigMap")
 	}
 
 	b := backoff.NewMaxRetries(3, 5*time.Second)
@@ -98,7 +98,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		createBucket := func() error {
 			err := s.S3.CreateBucket(s.Scope.BucketName())
 			if err != nil {
-				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying")
+				s.Scope.Logger().Error(err, "Failed to create S3 bucket, retrying")
 			}
 
 			return err
@@ -106,7 +106,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		err = backoff.Retry(createBucket, b)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to create bucket")
+			s.Scope.Logger().Error(err, "failed to create bucket")
 			return err
 		}
 	}
@@ -114,7 +114,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	err = s.S3.EncryptBucket(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to encrypt bucket")
+		s.Scope.Logger().Error(err, "failed to encrypt bucket")
 		return err
 	}
 
@@ -141,7 +141,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to create tags")
+		s.Scope.Logger().Error(err, "failed to create tags")
 		return err
 	}
 
@@ -157,7 +157,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create ACM certificate")
+				s.Scope.Logger().Error(err, "failed to create ACM certificate")
 				return err
 			}
 
@@ -165,25 +165,25 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			issued, err := s.ACM.IsCertificateIssued(*certificateArn)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create ACM certificate")
+				s.Scope.Logger().Error(err, "failed to create ACM certificate")
 				return err
 			}
 
 			hostedZoneID, err = s.Route53.FindPublicHostedZone(baseDomain)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to find route53 hosted zone ID")
+				s.Scope.Logger().Error(err, "failed to find route53 hosted zone ID")
 				return err
 			}
 
 			if !issued {
-				s.Scope.Logger.Info("ACM certificate is not issued yet")
+				s.Scope.Logger().Info("ACM certificate is not issued yet")
 
 				// Check if domain ownership is validated
 				validated, err := s.ACM.IsValidated(*certificateArn)
 				if err != nil {
 					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-					s.Scope.Logger.Error(err, "failed to check if ACM certificate's ownership is validated")
+					s.Scope.Logger().Error(err, "failed to check if ACM certificate's ownership is validated")
 					return err
 				}
 
@@ -192,14 +192,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 					cname, err := s.ACM.GetValidationCNAME(*certificateArn)
 					if err != nil {
 						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-						s.Scope.Logger.Error(err, "failed to get ACM certificate's validation DNS record details")
+						s.Scope.Logger().Error(err, "failed to get ACM certificate's validation DNS record details")
 						return err
 					}
 
 					err = s.Route53.EnsureDNSRecord(hostedZoneID, *cname)
 					if err != nil {
 						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-						s.Scope.Logger.Error(err, "failed to create ACM certificate's validation DNS record")
+						s.Scope.Logger().Error(err, "failed to create ACM certificate's validation DNS record")
 						return err
 					}
 
@@ -215,7 +215,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		distribution, err = s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags, Aliases: aliases, CertificateArn: cloudfrontCertificateARN})
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to create cloudfront distribution")
+			s.Scope.Logger().Error(err, "failed to create cloudfront distribution")
 			return err
 		}
 	}
@@ -236,7 +236,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger.Error(err, "failed to create cloudfront CNAME record")
+				s.Scope.Logger().Error(err, "failed to create cloudfront CNAME record")
 				return err
 			}
 		}
@@ -249,7 +249,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	if apierrors.IsNotFound(err) {
 		if err := irsaerrors.IsEmptyCloudfrontDistribution(distribution); err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "cloudfront distribution cannot be nil")
+			s.Scope.Logger().Error(err, "cloudfront distribution cannot be nil")
 			return err
 		}
 
@@ -264,10 +264,10 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 		if err := s.Client.Create(ctx, cfConfig); err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to create OIDC cloudfront secret for cluster")
+			s.Scope.Logger().Error(err, "failed to create OIDC cloudfront secret for cluster")
 			return err
 		}
-		s.Scope.Logger.Info("Created OIDC cloudfront secret in k8s")
+		s.Scope.Logger().Info("Created OIDC cloudfront secret in k8s")
 
 	} else if err != nil {
 		return err
@@ -275,20 +275,20 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// Ensure CM is up to date
 	if reflect.DeepEqual(cfConfig.Data, data) {
-		s.Scope.Logger.Info("Secret is already up to date")
+		s.Scope.Logger().Info("Secret is already up to date")
 	} else {
-		s.Scope.Logger.Info("Secret needs to be updated")
+		s.Scope.Logger().Info("Secret needs to be updated")
 
 		cfConfig.StringData = data
 
 		err = s.Client.Update(ctx, cfConfig)
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "error updating secret")
+			s.Scope.Logger().Error(err, "error updating secret")
 			return err
 		}
 
-		s.Scope.Logger.Info("Secret updated successfully")
+		s.Scope.Logger().Info("Secret updated successfully")
 	}
 
 	cfDomain = data["domain"]
@@ -304,7 +304,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	err = backoff.Retry(uploadFiles, b)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to upload files")
+		s.Scope.Logger().Error(err, "failed to upload files")
 		return err
 	}
 
@@ -313,7 +313,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
 		err = backoff.Retry(uploadPolicy, b)
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to upload policy")
+			s.Scope.Logger().Error(err, "failed to upload policy")
 			return err
 		}
 	}
@@ -321,7 +321,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to block public access")
+			s.Scope.Logger().Error(err, "failed to block public access")
 			return err
 		}
 	}
@@ -344,12 +344,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to create OIDC provider")
+		s.Scope.Logger().Error(err, "failed to create OIDC provider")
 		return err
 	}
 
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
-	s.Scope.Logger.Info("Finished reconciling on all resources.")
+	s.Scope.Logger().Info("Finished reconciling on all resources.")
 	return nil
 }
 
@@ -357,13 +357,13 @@ func (s *Service) Delete(ctx context.Context) error {
 	err := s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to delete S3 files")
+		s.Scope.Logger().Error(err, "failed to delete S3 files")
 		return err
 	}
 	err = s.S3.DeleteBucket(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to delete S3 bucket")
+		s.Scope.Logger().Error(err, "failed to delete S3 bucket")
 		return err
 	}
 
@@ -374,10 +374,10 @@ func (s *Service) Delete(ctx context.Context) error {
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
-			s.Scope.Logger.Info("Secret for OIDC cloudfront does not exist anymore, skipping")
+			s.Scope.Logger().Info("Secret for OIDC cloudfront does not exist anymore, skipping")
 			return nil
 		} else if err != nil {
-			s.Scope.Logger.Error(err, "unexpected error")
+			s.Scope.Logger().Error(err, "unexpected error")
 			return err
 		}
 
@@ -389,7 +389,7 @@ func (s *Service) Delete(ctx context.Context) error {
 	err = s.IAM.DeleteOIDCProviders()
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger.Error(err, "failed to delete OIDC provider")
+		s.Scope.Logger().Error(err, "failed to delete OIDC provider")
 		return err
 	}
 
@@ -401,7 +401,7 @@ func (s *Service) Delete(ctx context.Context) error {
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.Cloudfront.DisableDistribution(cfDistributionId)
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to disable cloudfront distribution for cluster")
+			s.Scope.Logger().Error(err, "failed to disable cloudfront distribution for cluster")
 			return err
 		}
 
@@ -415,13 +415,13 @@ func (s *Service) Delete(ctx context.Context) error {
 
 		err = backoff.Retry(deleteDistribution, backoff.NewMaxRetries(30, 1*time.Minute))
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to delete cloudfront distribution")
+			s.Scope.Logger().Error(err, "failed to delete cloudfront distribution")
 			return err
 		}
 
 		err = s.Cloudfront.DeleteOriginAccessIdentity(cfOriginAccessIdentityId)
 		if err != nil {
-			s.Scope.Logger.Error(err, "failed to delete cloudfront origin access identity for cluster")
+			s.Scope.Logger().Error(err, "failed to delete cloudfront origin access identity for cluster")
 			return err
 		}
 
@@ -429,10 +429,10 @@ func (s *Service) Delete(ctx context.Context) error {
 		if apierrors.IsNotFound(err) {
 			// OIDC cloudfront config map is already deleted
 			// fall through
-			s.Scope.Logger.Info("OIDC cloudfront config map for cluster not found, skipping deletion")
+			s.Scope.Logger().Info("OIDC cloudfront config map for cluster not found, skipping deletion")
 		} else if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger.Error(err, "failed to delete OIDC cloudfront config map for cluster")
+			s.Scope.Logger().Error(err, "failed to delete OIDC cloudfront config map for cluster")
 			return microerror.Mask(err)
 		}
 
@@ -448,7 +448,7 @@ func (s *Service) Delete(ctx context.Context) error {
 
 		err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
 		if err != nil {
-			s.Scope.Logger.Error(err, "error deleting ACM certificate")
+			s.Scope.Logger().Error(err, "error deleting ACM certificate")
 			return err
 		}
 	}
@@ -463,11 +463,11 @@ func (s *Service) Delete(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to remove finalizer from cluster values ConfigMap")
 		}
-		s.Scope.Logger.Info("successfully removed finalizer from cluster values ConfigMap")
+		s.Scope.Logger().Info("successfully removed finalizer from cluster values ConfigMap")
 	}
 
 	ctrlmetrics.Errors.DeleteLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace())
-	s.Scope.Logger.Info("Finished deleting all resources.")
+	s.Scope.Logger().Info("Finished deleting all resources.")
 
 	return nil
 }
@@ -529,7 +529,7 @@ func (s *Service) getBaseDomain(clusterValuesConfigMap *v1.ConfigMap, ctx contex
 }
 
 func (s *Service) getCloudFrontAliasDomain(ctx context.Context, baseDomain string) (string, error) {
-	awscluster := &v1beta1.AWSCluster{}
+	awscluster := &capa.AWSCluster{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, awscluster)
 	if apierrors.IsNotFound(err) {
 		// fallthrough
