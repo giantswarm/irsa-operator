@@ -114,7 +114,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if cluster.DeletionTimestamp != nil {
 		finalizers := cluster.GetFinalizers()
-		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
 			return ctrl.Result{}, nil
 		}
 
@@ -127,6 +127,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = patchHelper.Patch(ctx, cluster)
 		if err != nil {
