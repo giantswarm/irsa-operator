@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CAPA: Keep finalizer on cluster values ConfigMap since we need it to get the base domain. This fixes stuck deletion if the config map was already gone.
+
 ## [0.11.2] - 2023-03-15
 
 ### Fixed

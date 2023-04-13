@@ -73,7 +73,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		createBucket := func() error {
 			err := s.S3.CreateBucket(s.Scope.BucketName())
 			if err != nil {
-				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying ")
+				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying")
 			}
 
 			return err

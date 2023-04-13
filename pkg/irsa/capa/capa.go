@@ -11,13 +11,16 @@ import (
 
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
@@ -27,7 +30,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/iam"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/route53"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/s3"
-	"github.com/giantswarm/irsa-operator/pkg/errors"
+	irsaerrors "github.com/giantswarm/irsa-operator/pkg/errors"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	ctrlmetrics "github.com/giantswarm/irsa-operator/pkg/metrics"
 	"github.com/giantswarm/irsa-operator/pkg/util"
@@ -69,6 +72,24 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
+	// First add finalizer on cluster values ConfigMap since we need it to get the base domain (even on deletion)
+	clusterValuesConfigMap, err := s.getClusterValuesConfigMap(ctx)
+	if err != nil {
+		return err
+	}
+	if !controllerutil.ContainsFinalizer(clusterValuesConfigMap, key.FinalizerName) {
+		patchHelper, err := patch.NewHelper(clusterValuesConfigMap, s.Client)
+		if err != nil {
+			return errors.Wrapf(err, "failed to add finalizer on cluster values ConfigMap")
+		}
+		controllerutil.AddFinalizer(clusterValuesConfigMap, key.FinalizerName)
+		err = patchHelper.Patch(ctx, clusterValuesConfigMap)
+		if err != nil {
+			return errors.Wrapf(err, "failed to add finalizer on cluster values ConfigMap")
+		}
+		s.Scope.Logger.Info("successfully added finalizer to cluster values ConfigMap")
+	}
+
 	b := backoff.NewMaxRetries(3, 5*time.Second)
 
 	err = s.S3.IsBucketReady(s.Scope.BucketName())
@@ -77,7 +98,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		createBucket := func() error {
 			err := s.S3.CreateBucket(s.Scope.BucketName())
 			if err != nil {
-				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying ")
+				s.Scope.Logger.Error(err, "Failed to create S3 bucket, retrying")
 			}
 
 			return err
@@ -107,8 +128,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	customerTags := key.GetCustomerTags(cluster)
 
-	// Get BaseDomain from the cluster values cm.
-	baseDomain, err := s.getBaseDomain(ctx)
+	baseDomain, err := s.getBaseDomain(clusterValuesConfigMap, ctx)
 	if err != nil {
 		return err
 	}
@@ -227,7 +247,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	cfConfig := &v1.Secret{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 	if apierrors.IsNotFound(err) {
-		if err := errors.IsEmptyCloudfrontDistribution(distribution); err != nil {
+		if err := irsaerrors.IsEmptyCloudfrontDistribution(distribution); err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger.Error(err, "cloudfront distribution cannot be nil")
 			return err
@@ -373,6 +393,11 @@ func (s *Service) Delete(ctx context.Context) error {
 		return err
 	}
 
+	clusterValuesConfigMap, err := s.getClusterValuesConfigMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.Cloudfront.DisableDistribution(cfDistributionId)
 		if err != nil {
@@ -411,7 +436,7 @@ func (s *Service) Delete(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		baseDomain, err := s.getBaseDomain(ctx)
+		baseDomain, err := s.getBaseDomain(clusterValuesConfigMap, ctx)
 		if err != nil {
 			return err
 		}
@@ -426,6 +451,19 @@ func (s *Service) Delete(ctx context.Context) error {
 			s.Scope.Logger.Error(err, "error deleting ACM certificate")
 			return err
 		}
+	}
+
+	if controllerutil.ContainsFinalizer(clusterValuesConfigMap, key.FinalizerName) {
+		patchHelper, err := patch.NewHelper(clusterValuesConfigMap, s.Client)
+		if err != nil {
+			return errors.Wrapf(err, "failed to remove finalizer from cluster values ConfigMap")
+		}
+		controllerutil.RemoveFinalizer(clusterValuesConfigMap, key.FinalizerName)
+		err = patchHelper.Patch(ctx, clusterValuesConfigMap)
+		if err != nil {
+			return errors.Wrapf(err, "failed to remove finalizer from cluster values ConfigMap")
+		}
+		s.Scope.Logger.Info("successfully removed finalizer from cluster values ConfigMap")
 	}
 
 	ctrlmetrics.Errors.DeleteLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace())
@@ -449,14 +487,24 @@ func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, er
 	return privateKey, nil
 }
 
-func (s *Service) getBaseDomain(ctx context.Context) (string, error) {
+func (s *Service) getClusterValuesConfigMap(ctx context.Context) (*v1.ConfigMap, error) {
+	// Fetch config map created by cluster-apps-operator
 	cm := v1.ConfigMap{}
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName())}, &cm)
+	err := s.Client.Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: s.Scope.ClusterNamespace(),
+			Name:      fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName()),
+		},
+		&cm)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	return &cm, nil
+}
 
-	jsonStr := cm.Data["values"]
+func (s *Service) getBaseDomain(clusterValuesConfigMap *v1.ConfigMap, ctx context.Context) (string, error) {
+	jsonStr := clusterValuesConfigMap.Data["values"]
 	if jsonStr == "" {
 		return "", microerror.Mask(clusterValuesConfigMapNotFound)
 	}
@@ -467,7 +515,7 @@ func (s *Service) getBaseDomain(ctx context.Context) (string, error) {
 
 	cv := clusterValues{}
 
-	err = yaml.Unmarshal([]byte(jsonStr), &cv)
+	err := yaml.Unmarshal([]byte(jsonStr), &cv)
 	if err != nil {
 		return "", err
 	}
