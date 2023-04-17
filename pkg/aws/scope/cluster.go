@@ -11,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/klogr"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
 )
@@ -72,10 +71,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		return nil, errors.New("failed to generate new scope from emtpy string SecretName")
 	}
 
-	if params.Logger == nil {
-		params.Logger = klogr.New()
-	}
-
 	// `ParseTolerant` instead of `Parse` in case we ever mistakenly use the `v` version prefix or other non-strict format
 	releaseSemver, err := semver.ParseTolerant(params.ReleaseVersion)
 	if err != nil {
@@ -112,7 +107,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		releaseSemver:    releaseSemver,
 		secretName:       params.SecretName,
 
-		Logger:  params.Logger,
+		Logr:    params.Logger,
 		session: session,
 	}, nil
 }
@@ -133,8 +128,12 @@ type ClusterScope struct {
 	releaseSemver    semver.Version
 	secretName       string
 
-	logr.Logger
+	Logr    logr.Logger
 	session awsclient.ConfigProvider
+}
+
+func (s *ClusterScope) Logger() logr.Logger {
+	return s.Logr
 }
 
 // AccountID returns the account ID of the assumed role.

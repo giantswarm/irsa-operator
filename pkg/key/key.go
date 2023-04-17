@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	FinalizerName = "irsa-operator.finalizers.giantswarm.io"
+	FinalizerNameDeprecated = "irsa-operator.finalizers.giantswarm.io" // should go away since it's not fully qualified
+	FinalizerName           = "irsa-operator.finalizers.giantswarm.io/resource"
 	// TODO move it into k8smetadata
 	IRSAAnnotation = "alpha.aws.giantswarm.io/iam-roles-for-service-accounts"
 	// Upgrading existing IRSA clusters witout breaking clusters

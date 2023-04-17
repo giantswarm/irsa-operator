@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
-	"k8s.io/klog/klogr"
+	"k8s.io/klog/v2/klogr"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 )
@@ -94,7 +94,7 @@ func TestService_distributionNeedsUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clusterScope := &scope.ClusterScope{
-				Logger: klogr.New(),
+				Logr: klogr.New(),
 			}
 
 			s := &Service{

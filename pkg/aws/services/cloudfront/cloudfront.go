@@ -35,38 +35,38 @@ func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	}
 	o, err := s.Client.CreateCloudFrontOriginAccessIdentity(i)
 	if err != nil {
-		s.scope.Error(err, "Error creating cloudfront origin access identity")
+		s.scope.Logger().Error(err, "Error creating cloudfront origin access identity")
 		return "", err
 	}
-	s.scope.Info("Created cloudfront origin access identity")
+	s.scope.Logger().Info("Created cloudfront origin access identity")
 
 	return *o.CloudFrontOriginAccessIdentity.Id, nil
 }
 
 func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, error) {
-	s.scope.Info("Ensuring cloudfront distribution")
+	s.scope.Logger().Info("Ensuring cloudfront distribution")
 
 	// Check if distribution already exists.
 	d, err := s.findDistribution()
 	if err != nil {
-		s.scope.Error(err, "Error checking if cloudfront distribution already exists")
+		s.scope.Logger().Error(err, "Error checking if cloudfront distribution already exists")
 		return nil, err
 	}
 
 	diff, err := s.checkDiff(d, config)
 	if err != nil {
-		s.scope.Error(err, "Error checking if cloudfront distribution needs to be updated")
+		s.scope.Logger().Error(err, "Error checking if cloudfront distribution needs to be updated")
 		return nil, err
 	}
 
 	if diff.IsUpToDate() {
-		s.scope.Info("Cloudfront distribution is up to date")
+		s.scope.Logger().Info("Cloudfront distribution is up to date")
 		return d, nil
 	}
 
 	oaiId, err := s.CreateOriginAccessIdentity()
 	if err != nil {
-		s.scope.Error(err, "Error creating cloudfront origin access identity")
+		s.scope.Logger().Error(err, "Error creating cloudfront origin access identity")
 		return nil, err
 	}
 
@@ -148,16 +148,16 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		// Create new distribution.
 		o, err := s.Client.CreateDistributionWithTags(i)
 		if err != nil {
-			s.scope.Error(err, "Error creating cloudfront distribution")
+			s.scope.Logger().Error(err, "Error creating cloudfront distribution")
 			return nil, err
 		}
-		s.scope.Info("Created cloudfront distribution")
+		s.scope.Logger().Info("Created cloudfront distribution")
 
 		return &Distribution{ARN: *o.Distribution.ARN, DistributionId: *o.Distribution.Id, Domain: *o.Distribution.DomainName, OriginAccessIdentityId: oaiId}, nil
 	} else if diff.NeedsUpdate {
 		// Update existing distribution.
 
-		s.scope.Info("Updating distribution")
+		s.scope.Logger().Info("Updating distribution")
 
 		// Take the existing distributionConfig (with all defaulting happened on AWS side) and override with our desired settings.
 		dc := diff.Existing.DistributionConfig
@@ -170,25 +170,25 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 			IfMatch:            diff.ETag,
 		})
 		if err != nil {
-			s.scope.Error(err, "Error updating cloudfront distribution")
+			s.scope.Logger().Error(err, "Error updating cloudfront distribution")
 			return nil, err
 		}
 
-		s.scope.Info("Updated distribution")
+		s.scope.Logger().Info("Updated distribution")
 	}
 
 	if len(diff.TagsToBeAdded) > 0 {
-		s.scope.Info(fmt.Sprintf("Adding %d tags", len(diff.TagsToBeAdded)))
+		s.scope.Logger().Info(fmt.Sprintf("Adding %d tags", len(diff.TagsToBeAdded)))
 		_, err := s.Client.TagResource(&cloudfront.TagResourceInput{
 			Resource: diff.Existing.ARN,
 			Tags:     i.DistributionConfigWithTags.Tags,
 		})
 		if err != nil {
-			s.scope.Error(err, "Error adding cloudfront tags")
+			s.scope.Logger().Error(err, "Error adding cloudfront tags")
 			return nil, err
 		}
 
-		s.scope.Info("Added tags")
+		s.scope.Logger().Info("Added tags")
 	}
 
 	if len(diff.TagsToBeRemoved) > 0 {
@@ -196,7 +196,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		for _, k := range diff.TagsToBeRemoved {
 			keys = append(keys, aws.String(k))
 		}
-		s.scope.Info(fmt.Sprintf("Deleting %d tags", len(keys)))
+		s.scope.Logger().Info(fmt.Sprintf("Deleting %d tags", len(keys)))
 		_, err := s.Client.UntagResource(&cloudfront.UntagResourceInput{
 			Resource: diff.Existing.ARN,
 			TagKeys: &cloudfront.TagKeys{
@@ -204,11 +204,11 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 			},
 		})
 		if err != nil {
-			s.scope.Error(err, "Error deleting cloudfront tags")
+			s.scope.Logger().Error(err, "Error deleting cloudfront tags")
 			return nil, err
 		}
 
-		s.scope.Info("Tags deleted")
+		s.scope.Logger().Info("Tags deleted")
 	}
 
 	return &Distribution{ARN: *diff.Existing.ARN, DistributionId: *diff.Existing.Id, Domain: *diff.Existing.DomainName, OriginAccessIdentityId: oaiId}, nil
@@ -245,7 +245,7 @@ func (s *Service) findDistribution() (*Distribution, error) {
 
 				tokens := strings.Split(fullId, "/")
 				if len(tokens) != 3 {
-					s.scope.Error(invalidOriginAccessIdentity, "Unexpected format for the Cloud Front S3OriginConfig OriginAccessIdentity field")
+					s.scope.Logger().Error(invalidOriginAccessIdentity, "Unexpected format for the Cloud Front S3OriginConfig OriginAccessIdentity field")
 					return nil, microerror.Mask(err)
 				}
 
@@ -280,7 +280,7 @@ func (s *Service) DisableDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeNoSuchDistribution:
-				s.scope.Info("Cloudfront distibution no longer exists, skipping deletion")
+				s.scope.Logger().Info("Cloudfront distibution no longer exists, skipping deletion")
 				return nil
 			}
 		}
@@ -294,10 +294,10 @@ func (s *Service) DisableDistribution(distributionId string) error {
 	}
 	_, err = s.Client.UpdateDistribution(i)
 	if err != nil {
-		s.scope.Error(err, "Error disabling cloudfront distribution")
+		s.scope.Logger().Error(err, "Error disabling cloudfront distribution")
 		return err
 	}
-	s.scope.Info("Disabled cloudfront distribution")
+	s.scope.Logger().Info("Disabled cloudfront distribution")
 	return nil
 }
 
@@ -320,10 +320,10 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeDistributionNotDisabled:
-				s.scope.Info("Cloudfront distribution is not disabled yet, waiting ...")
+				s.scope.Logger().Info("Cloudfront distribution is not disabled yet, waiting ...")
 				return err
 			case cloudfront.ErrCodeNoSuchDistribution:
-				s.scope.Info("Cloudfront distribution no longer exists, skipping deletion")
+				s.scope.Logger().Info("Cloudfront distribution no longer exists, skipping deletion")
 				return nil
 			}
 		}
@@ -338,14 +338,14 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeDistributionNotDisabled:
-				s.scope.Info("Cloudfront distribution is not disabled yet, waiting ...")
+				s.scope.Logger().Info("Cloudfront distribution is not disabled yet, waiting ...")
 				return err
 			}
 		}
-		s.scope.Error(err, "Error deleting cloudfront distribution")
+		s.scope.Logger().Error(err, "Error deleting cloudfront distribution")
 		return err
 	}
-	s.scope.Info("Deleted cloudfront distribution")
+	s.scope.Logger().Info("Deleted cloudfront distribution")
 	return nil
 }
 
@@ -355,11 +355,11 @@ func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeNoSuchCloudFrontOriginAccessIdentity:
-				s.scope.Info("Origin access identity no longer exists, skipping deletion")
+				s.scope.Logger().Info("Origin access identity no longer exists, skipping deletion")
 				return nil
 			}
 		}
-		s.scope.Error(err, "Error getting cloudfront origin access identity")
+		s.scope.Logger().Error(err, "Error getting cloudfront origin access identity")
 		return err
 	}
 	i := &cloudfront.DeleteCloudFrontOriginAccessIdentityInput{
@@ -368,10 +368,10 @@ func (s *Service) DeleteOriginAccessIdentity(oaiId string) error {
 	}
 	_, err = s.Client.DeleteCloudFrontOriginAccessIdentity(i)
 	if err != nil {
-		s.scope.Error(err, "Error deleting cloudfront origin access identity")
+		s.scope.Logger().Error(err, "Error deleting cloudfront origin access identity")
 		return err
 	}
-	s.scope.Info("Deleted cloudfront origin access identity")
+	s.scope.Logger().Info("Deleted cloudfront origin access identity")
 	return nil
 }
 

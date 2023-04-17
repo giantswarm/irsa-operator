@@ -26,16 +26,16 @@ func (s *Service) CreateBucket(bucketName string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeBucketAlreadyOwnedByYou:
-				s.scope.Info("Bucket already exists", "bucket", bucketName)
+				s.scope.Logger().Info("Bucket already exists", "bucket", bucketName)
 				return nil
 			case s3.ErrCodeBucketAlreadyExists:
-				s.scope.Info("Bucket already exists", "bucket", bucketName)
+				s.scope.Logger().Info("Bucket already exists", "bucket", bucketName)
 				return nil
 			}
 		}
 		return err
 	}
-	s.scope.Info("Created bucket", "bucket", bucketName)
+	s.scope.Logger().Info("Created bucket", "bucket", bucketName)
 
 	return nil
 }
@@ -74,7 +74,7 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 		return err
 	}
 
-	s.scope.Info("Created tags for S3 bucket", bucketName)
+	s.scope.Logger().Info("Created tags for S3 bucket", bucketName)
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (s *Service) EncryptBucket(bucketName string) error {
 		return err
 	}
 
-	s.scope.Info("Encrypted S3 bucket", bucketName)
+	s.scope.Logger().Info("Encrypted S3 bucket", bucketName)
 	return nil
 }
 
@@ -111,13 +111,13 @@ func (s *Service) DeleteBucket(bucketName string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeNoSuchBucket:
-				s.scope.Info("Bucket does not exist, skipping bucket deletion", "bucket", bucketName)
+				s.scope.Logger().Info("Bucket does not exist, skipping bucket deletion", "bucket", bucketName)
 				return nil
 			}
 		}
 		return err
 	}
-	s.scope.Info("Deleted bucket", "bucket", bucketName)
+	s.scope.Logger().Info("Deleted bucket", "bucket", bucketName)
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (s *Service) IsBucketReady(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Info("S3 bucket already exists, skipping creation", bucketName)
+	s.scope.Logger().Info("S3 bucket already exists, skipping creation", bucketName)
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 		return err
 	}
 
-	s.scope.Info("Restricted access to allow Cloudfront reaching S3 bucket", bucketName)
+	s.scope.Logger().Info("Restricted access to allow Cloudfront reaching S3 bucket", bucketName)
 	return nil
 }
 
@@ -195,7 +195,7 @@ func (s *Service) BlockPublicAccess(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Info("Blocked public access for S3 bucket", bucketName)
+	s.scope.Logger().Info("Blocked public access for S3 bucket", bucketName)
 	return nil
 
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func (s *Service) EnsureCertificate(domain string, customerTags map[string]string) (*string, error) {
-	s.scope.Info(fmt.Sprintf("Ensuring ACM certificate for domain %q", domain))
+	s.scope.Logger().Info(fmt.Sprintf("Ensuring ACM certificate for domain %q", domain))
 
 	// Check if certificate exists
 	certificateArn, err := s.findCertificateForDomain(domain)
@@ -22,7 +22,7 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 	}
 
 	if certificateArn != nil {
-		s.scope.Info("ACM certificate already exists")
+		s.scope.Logger().Info("ACM certificate already exists")
 
 		return certificateArn, nil
 	}
@@ -59,20 +59,20 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 		input.Tags = append(input.Tags, tag)
 	}
 
-	s.scope.Info("Creating ACM certificate")
+	s.scope.Logger().Info("Creating ACM certificate")
 
 	output, err := s.Client.RequestCertificate(input)
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
 
-	s.scope.Info("ACM certificate created successfully")
+	s.scope.Logger().Info("ACM certificate created successfully")
 	return output.CertificateArn, nil
 }
 
 // IsCertificateIssued checks if an ACM certificate is issued.
 func (s *Service) IsCertificateIssued(arn string) (bool, error) {
-	s.scope.Info("Checking status of ACM certificate")
+	s.scope.Logger().Info("Checking status of ACM certificate")
 
 	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
 		CertificateArn: aws.String(arn),
@@ -124,7 +124,7 @@ func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
 }
 
 func (s *Service) DeleteCertificate(domain string) error {
-	s.scope.Info("Ensuring ACM certificate is deleted")
+	s.scope.Logger().Info("Ensuring ACM certificate is deleted")
 
 	arn, err := s.findCertificateForDomain(domain)
 	if err != nil {
@@ -132,17 +132,17 @@ func (s *Service) DeleteCertificate(domain string) error {
 	}
 
 	if arn != nil {
-		s.scope.Info("Deleting ACM certificate")
+		s.scope.Logger().Info("Deleting ACM certificate")
 		_, err = s.Client.DeleteCertificate(&acm.DeleteCertificateInput{CertificateArn: arn})
 		if err != nil {
 			return microerror.Mask(err)
 		}
 
-		s.scope.Info("Deleted ACM certificate")
+		s.scope.Logger().Info("Deleted ACM certificate")
 		return nil
 	}
 
-	s.scope.Info("ACM certificate was not found")
+	s.scope.Logger().Info("ACM certificate was not found")
 
 	return nil
 }

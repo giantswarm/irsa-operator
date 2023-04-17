@@ -59,7 +59,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				clientidsDiff := slicediff.DiffIgnoreCase(existing.ClientIDList, []*string{&clientID})
 
 				for _, add := range clientidsDiff.Added {
-					s.scope.Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
 					_, err = s.Client.AddClientIDToOpenIDConnectProvider(&iam.AddClientIDToOpenIDConnectProviderInput{
 						ClientID:                 aws.String(add),
 						OpenIDConnectProviderArn: &arn,
@@ -67,10 +67,10 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					if err != nil {
 						return microerror.Mask(err)
 					}
-					s.scope.Info(fmt.Sprintf("Added client id %s to OIDCProvider for URL %s", add, identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Added client id %s to OIDCProvider for URL %s", add, identityProviderURL))
 				}
 				for _, remove := range clientidsDiff.Removed {
-					s.scope.Info(fmt.Sprintf("Removing client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Removing client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
 					_, err = s.Client.RemoveClientIDFromOpenIDConnectProvider(&iam.RemoveClientIDFromOpenIDConnectProviderInput{
 						ClientID:                 aws.String(remove),
 						OpenIDConnectProviderArn: &arn,
@@ -78,11 +78,11 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					if err != nil {
 						return microerror.Mask(err)
 					}
-					s.scope.Info(fmt.Sprintf("Removed client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Removed client id %s to OIDCProvider for URL %s", remove, identityProviderURL))
 				}
 
 				if thumbprintsDiff.Changed() {
-					s.scope.Info(fmt.Sprintf("Updating thumbprints on OIDCProvider for URL %s", identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Updating thumbprints on OIDCProvider for URL %s", identityProviderURL))
 					_, err := s.Client.UpdateOpenIDConnectProviderThumbprint(&iam.UpdateOpenIDConnectProviderThumbprintInput{
 						OpenIDConnectProviderArn: &arn,
 						ThumbprintList:           thumbprints,
@@ -90,10 +90,10 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					if err != nil {
 						return microerror.Mask(err)
 					}
-					s.scope.Info(fmt.Sprintf("Updated thumbprints on OIDCProvider for URL %s", identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("Updated thumbprints on OIDCProvider for URL %s", identityProviderURL))
 
 				} else {
-					s.scope.Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
+					s.scope.Logger().Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
 				}
 				break
 			}
@@ -103,7 +103,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 			continue
 		}
 
-		s.scope.Info(fmt.Sprintf("Creating OIDCProvider for URL %s", identityProviderURL))
+		s.scope.Logger().Info(fmt.Sprintf("Creating OIDCProvider for URL %s", identityProviderURL))
 
 		i := &iam.CreateOpenIDConnectProviderInput{
 			Url:            aws.String(identityProviderURL),
@@ -134,7 +134,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		if err != nil {
 			return microerror.Mask(err)
 		}
-		s.scope.Info(fmt.Sprintf("Created OIDC provider for URL %s", identityProviderURL))
+		s.scope.Logger().Info(fmt.Sprintf("Created OIDC provider for URL %s", identityProviderURL))
 	}
 	return nil
 }
@@ -149,7 +149,7 @@ func (s *Service) internalTags() map[string]string {
 }
 
 func (s *Service) findOIDCProviders() (map[string]*iam.GetOpenIDConnectProviderOutput, error) {
-	s.scope.Info("Looking for existing OIDC providers")
+	s.scope.Logger().Info("Looking for existing OIDC providers")
 	output, err := s.Client.ListOpenIDConnectProviders(&iam.ListOpenIDConnectProvidersInput{})
 	if err != nil {
 		return nil, microerror.Mask(err)
@@ -183,9 +183,9 @@ func (s *Service) findOIDCProviders() (map[string]*iam.GetOpenIDConnectProviderO
 	}
 
 	if len(ret) == 0 {
-		s.scope.Info("Did not find any OIDC provider")
+		s.scope.Logger().Info("Did not find any OIDC provider")
 	} else {
-		s.scope.Info(fmt.Sprintf("Found %d existing OIDC providers", len(ret)))
+		s.scope.Logger().Info(fmt.Sprintf("Found %d existing OIDC providers", len(ret)))
 	}
 
 	return ret, nil
@@ -234,13 +234,13 @@ func (s *Service) DeleteOIDCProviders() error {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case iam.ErrCodeNoSuchEntityException:
-					s.scope.Info("OIDC provider no longer exists, skipping deletion")
+					s.scope.Logger().Info("OIDC provider no longer exists, skipping deletion")
 					continue
 				}
 			}
 			return err
 		}
-		s.scope.Info("Deleted OIDC provider")
+		s.scope.Logger().Info("Deleted OIDC provider")
 	}
 
 	return nil

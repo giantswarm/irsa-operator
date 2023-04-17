@@ -13,8 +13,10 @@ type Session interface {
 
 // ClusterScoper is the interface for a workload cluster scope
 type ClusterScoper interface {
-	logr.Logger
 	Session
+
+	// Logger retrieves the logger
+	Logger() logr.Logger
 
 	// ARN returns the workload cluster assumed role to operate.
 	ARN() string
