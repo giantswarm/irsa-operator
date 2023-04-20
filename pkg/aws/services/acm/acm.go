@@ -149,7 +149,10 @@ func (s *Service) DeleteCertificate(domain string) error {
 }
 
 func (s *Service) findCertificateForDomain(domain string) (*string, error) {
-	certs := getACMCertificates(s.Client)
+	certs, err := getACMCertificates(s.Client)
+	if err != nil {
+		return nil, microerror.Mask(err)
+	}
 	for _, certificate := range certs {
 		if *certificate.DomainName == domain {
 			return certificate.CertificateArn, nil
@@ -159,13 +162,13 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 	return nil, nil
 }
 
-func getACMCertificates(acmClient acmiface.ACMAPI) []*acm.CertificateSummary {
+func getACMCertificates(acmClient acmiface.ACMAPI) ([]*acm.CertificateSummary, error) {
 	certs := []*acm.CertificateSummary{}
 	listCertificatesOutput, err := acmClient.ListCertificates(&acm.ListCertificatesInput{
 		MaxItems: aws.Int64(100),
 	})
 	if err != nil {
-		panic(err)
+		return certs, microerror.Mask(err)
 	}
 
 	certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
@@ -177,10 +180,10 @@ func getACMCertificates(acmClient acmiface.ACMAPI) []*acm.CertificateSummary {
 			NextToken: listCertificatesOutput.NextToken,
 		})
 		if err != nil {
-			panic(err)
+			return certs, microerror.Mask(err)
 		}
 		certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
 	}
 
-	return certs
+	return certs, nil
 }
