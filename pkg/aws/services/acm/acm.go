@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go/service/acm/acmiface"
 	"github.com/giantswarm/microerror"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/route53"
@@ -148,38 +149,41 @@ func (s *Service) DeleteCertificate(domain string) error {
 }
 
 func (s *Service) findCertificateForDomain(domain string) (*string, error) {
-	var existing *acm.ListCertificatesOutput
-	var err error
-
-	// NextToken is the way AWS API performs pagination over results.
-	// If NextToken is not nil, there is another page of results to be requested.
-
-	var nextToken string
-
-	// If existing is nil, means we have to request the very first page of results.
-	for existing == nil || nextToken != "" {
-		if existing != nil && existing.NextToken != nil && *existing.NextToken != "" {
-			nextToken = *existing.NextToken
-		}
-		input := &acm.ListCertificatesInput{}
-		if nextToken != "" {
-			input.NextToken = &nextToken
-		}
-		existing, err = s.Client.ListCertificates(input)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-
-		if len(existing.CertificateSummaryList) == 0 {
-			return nil, nil
-		}
-
-		for _, c := range existing.CertificateSummaryList {
-			if *c.DomainName == domain {
-				return c.CertificateArn, nil
-			}
+	certs, err := getACMCertificates(s.Client)
+	if err != nil {
+		return nil, microerror.Mask(err)
+	}
+	for _, certificate := range certs {
+		if *certificate.DomainName == domain {
+			return certificate.CertificateArn, nil
 		}
 	}
 
 	return nil, nil
+}
+
+func getACMCertificates(acmClient acmiface.ACMAPI) ([]*acm.CertificateSummary, error) {
+	certs := []*acm.CertificateSummary{}
+	listCertificatesOutput, err := acmClient.ListCertificates(&acm.ListCertificatesInput{
+		MaxItems: aws.Int64(100),
+	})
+	if err != nil {
+		return certs, microerror.Mask(err)
+	}
+
+	certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
+
+	// If the response contains `NexToken` we need to keep sending requests including the token to get all results.
+	for listCertificatesOutput.NextToken != nil && *listCertificatesOutput.NextToken != "" {
+		listCertificatesOutput, err = acmClient.ListCertificates(&acm.ListCertificatesInput{
+			MaxItems:  aws.Int64(100),
+			NextToken: listCertificatesOutput.NextToken,
+		})
+		if err != nil {
+			return certs, microerror.Mask(err)
+		}
+		certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
+	}
+
+	return certs, nil
 }
