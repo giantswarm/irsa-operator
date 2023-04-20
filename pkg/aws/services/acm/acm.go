@@ -161,25 +161,25 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 
 func getACMCertificates(acmClient acmiface.ACMAPI) []*acm.CertificateSummary {
 	certs := []*acm.CertificateSummary{}
-	output, err := acmClient.ListCertificates(&acm.ListCertificatesInput{
+	listCertificatesOutput, err := acmClient.ListCertificates(&acm.ListCertificatesInput{
 		MaxItems: aws.Int64(100),
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	certs = append(certs, output.CertificateSummaryList...)
+	certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
 
 	// If the response contains `NexToken` we need to keep sending requests including the token to get all results.
-	for output.NextToken != nil && *output.NextToken != "" {
-		output, err = acmClient.ListCertificates(&acm.ListCertificatesInput{
+	for listCertificatesOutput.NextToken != nil && *listCertificatesOutput.NextToken != "" {
+		listCertificatesOutput, err = acmClient.ListCertificates(&acm.ListCertificatesInput{
 			MaxItems:  aws.Int64(100),
-			NextToken: output.NextToken,
+			NextToken: listCertificatesOutput.NextToken,
 		})
 		if err != nil {
 			panic(err)
 		}
-		certs = append(certs, output.CertificateSummaryList...)
+		certs = append(certs, listCertificatesOutput.CertificateSummaryList...)
 	}
 
 	return certs
