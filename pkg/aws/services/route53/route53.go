@@ -22,7 +22,7 @@ func (s *Service) FindPrivateHostedZone(basename string) (string, error) {
 }
 
 func (s *Service) findHostedZone(basename string, public bool) (string, error) {
-	s.scope.Info("Searching route53 hosted zone ID")
+	s.scope.Logger().Info("Searching route53 hosted zone ID")
 
 	output, err := s.Client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{
 		DNSName: aws.String(basename),
@@ -42,7 +42,7 @@ func (s *Service) findHostedZone(basename string, public bool) (string, error) {
 }
 
 func (s *Service) EnsureDNSRecord(hostedZoneID string, cname CNAME) error {
-	s.scope.Info(fmt.Sprintf("Ensuring CNAME record %q in zone %q", cname.Name, hostedZoneID))
+	s.scope.Logger().Info(fmt.Sprintf("Ensuring CNAME record %q in zone %q", cname.Name, hostedZoneID))
 
 	input := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -70,7 +70,7 @@ func (s *Service) EnsureDNSRecord(hostedZoneID string, cname CNAME) error {
 		return microerror.Mask(err)
 	}
 
-	s.scope.Info(fmt.Sprintf("Ensured CNAME record %q in zone %q", cname.Name, hostedZoneID))
+	s.scope.Logger().Info(fmt.Sprintf("Ensured CNAME record %q in zone %q", cname.Name, hostedZoneID))
 
 	return nil
 }

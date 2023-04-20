@@ -26,12 +26,12 @@ func (s *Service) checkDiff(d *Distribution, config DistributionConfig) (*Diff, 
 	if d == nil {
 		ret.NeedsCreate = true
 	} else {
-		s.scope.Info("Cloudfront distribution already exists")
+		s.scope.Logger().Info("Cloudfront distribution already exists")
 
 		// Check if distribution is up to date.
 		result, err := s.Client.GetDistribution(&cloudfront.GetDistributionInput{Id: aws.String(d.DistributionId)})
 		if err != nil {
-			s.scope.Error(err, "Error checking if cloudfront distribution is up to date")
+			s.scope.Logger().Error(err, "Error checking if cloudfront distribution is up to date")
 			return nil, err
 		}
 
@@ -42,7 +42,7 @@ func (s *Service) checkDiff(d *Distribution, config DistributionConfig) (*Diff, 
 			Resource: result.Distribution.ARN,
 		})
 		if err != nil {
-			s.scope.Error(err, "Error listing tags")
+			s.scope.Logger().Error(err, "Error listing tags")
 			return nil, err
 		}
 
@@ -62,7 +62,7 @@ func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution,
 	if (distribution.DistributionConfig.Aliases == nil && config.Aliases != nil) ||
 		(distribution.DistributionConfig.Aliases != nil && distribution.DistributionConfig.Aliases.Items != nil && config.Aliases == nil) ||
 		(distribution.DistributionConfig.Aliases != nil && distribution.DistributionConfig.Aliases.Items != nil && config.Aliases != nil && len(distribution.DistributionConfig.Aliases.Items) != len(config.Aliases)) {
-		s.scope.Info("Distribution Aliases need to be updated")
+		s.scope.Logger().Info("Distribution Aliases need to be updated")
 		changed = true
 	} else {
 		// desired and current Aliases are slices with the same size, but might still be different.
@@ -80,7 +80,7 @@ func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution,
 		}
 
 		if !reflect.DeepEqual(currentAliases, desiredAliases) {
-			s.scope.Info("Distribution Aliases need to be updated")
+			s.scope.Logger().Info("Distribution Aliases need to be updated")
 			changed = true
 		}
 	}
@@ -88,7 +88,7 @@ func (s *Service) distributionNeedsUpdate(distribution *cloudfront.Distribution,
 	if (distribution.DistributionConfig.ViewerCertificate == nil && config.CertificateArn != "") ||
 		(distribution.DistributionConfig.ViewerCertificate != nil && distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn == nil && config.CertificateArn != "") ||
 		(distribution.DistributionConfig.ViewerCertificate != nil && distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != nil && *distribution.DistributionConfig.ViewerCertificate.ACMCertificateArn != config.CertificateArn) {
-		s.scope.Info("Distribution viewer certificate needs to be updated")
+		s.scope.Logger().Info("Distribution viewer certificate needs to be updated")
 		changed = true
 	}
 
