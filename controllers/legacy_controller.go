@@ -134,19 +134,23 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	}
 
+	// Check if Cloudfront alias should be used before v19.0.0
+	_, preCloudfrontAlias := cluster.Annotations[key.IRSAPreCloudfrontAlias]
+
 	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		AccountID:        accountID,
-		ARN:              arn,
-		BucketName:       key.BucketName(accountID, cluster.Name),
-		ClusterName:      cluster.Name,
-		ClusterNamespace: cluster.Namespace,
-		ConfigName:       key.ConfigName(cluster.Name),
-		Installation:     r.Installation,
-		Migration:        migration,
-		Region:           cluster.Spec.Provider.Region,
-		ReleaseVersion:   key.Release(cluster),
-		SecretName:       key.SecretName(cluster.Name),
+		AccountID:          accountID,
+		ARN:                arn,
+		BucketName:         key.BucketName(accountID, cluster.Name),
+		ClusterName:        cluster.Name,
+		ClusterNamespace:   cluster.Namespace,
+		ConfigName:         key.ConfigName(cluster.Name),
+		Installation:       r.Installation,
+		Migration:          migration,
+		PreCloudfrontAlias: preCloudfrontAlias,
+		Region:             cluster.Spec.Provider.Region,
+		ReleaseVersion:     key.Release(cluster),
+		SecretName:         key.SecretName(cluster.Name),
 
 		Logger:  logger,
 		Cluster: cluster,

@@ -17,18 +17,19 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	AccountID        string
-	ARN              string
-	BucketName       string
-	Cluster          runtime.Object
-	ClusterName      string
-	ClusterNamespace string
-	ConfigName       string
-	Installation     string
-	Migration        bool
-	Region           string
-	ReleaseVersion   string
-	SecretName       string
+	AccountID          string
+	ARN                string
+	BucketName         string
+	Cluster            runtime.Object
+	ClusterName        string
+	ClusterNamespace   string
+	ConfigName         string
+	Installation       string
+	Migration          bool
+	PreCloudfrontAlias bool
+	Region             string
+	ReleaseVersion     string
+	SecretName         string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -93,19 +94,20 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	params.Logger.Info(fmt.Sprintf("assumed role %s", *o.Arn))
 
 	return &ClusterScope{
-		accountID:        params.AccountID,
-		assumeRole:       params.ARN,
-		bucketName:       params.BucketName,
-		cluster:          params.Cluster,
-		clusterName:      params.ClusterName,
-		clusterNamespace: params.ClusterNamespace,
-		configName:       params.ConfigName,
-		installation:     params.Installation,
-		migration:        params.Migration,
-		region:           params.Region,
-		releaseVersion:   params.ReleaseVersion,
-		releaseSemver:    releaseSemver,
-		secretName:       params.SecretName,
+		accountID:          params.AccountID,
+		assumeRole:         params.ARN,
+		bucketName:         params.BucketName,
+		cluster:            params.Cluster,
+		clusterName:        params.ClusterName,
+		clusterNamespace:   params.ClusterNamespace,
+		configName:         params.ConfigName,
+		installation:       params.Installation,
+		migration:          params.Migration,
+		preCloudfrontAlias: params.PreCloudfrontAlias,
+		region:             params.Region,
+		releaseVersion:     params.ReleaseVersion,
+		releaseSemver:      releaseSemver,
+		secretName:         params.SecretName,
 
 		Logr:    params.Logger,
 		session: session,
@@ -114,19 +116,20 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	accountID        string
-	bucketName       string
-	assumeRole       string
-	cluster          runtime.Object
-	clusterName      string
-	clusterNamespace string
-	configName       string
-	installation     string
-	migration        bool
-	region           string
-	releaseVersion   string
-	releaseSemver    semver.Version
-	secretName       string
+	accountID          string
+	bucketName         string
+	assumeRole         string
+	cluster            runtime.Object
+	clusterName        string
+	clusterNamespace   string
+	configName         string
+	installation       string
+	migration          bool
+	preCloudfrontAlias bool
+	region             string
+	releaseVersion     string
+	releaseSemver      semver.Version
+	secretName         string
 
 	Logr    logr.Logger
 	session awsclient.ConfigProvider
@@ -183,6 +186,11 @@ func (s *ClusterScope) Installation() string {
 // MigrationNeeded returns if the cluster object needs migration beforehand.
 func (s *ClusterScope) MigrationNeeded() bool {
 	return s.migration
+}
+
+// PreCloudfrontAlias returns if the cloudfront alias should be used before v19.0.0.
+func (s *ClusterScope) PreCloudfrontAlias() bool {
+	return s.preCloudfrontAlias
 }
 
 // Region returns the region of the AWS infrastructure cluster object.

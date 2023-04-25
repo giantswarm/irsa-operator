@@ -16,6 +16,8 @@ const (
 	IRSAAnnotation = "alpha.aws.giantswarm.io/iam-roles-for-service-accounts"
 	// Upgrading existing IRSA clusters witout breaking clusters
 	IRSAMigrationAnnotation = "alpha.aws.giantswarm.io/irsa-migration"
+	// Use Cloudfront alias before v19.0.0
+	IRSAPreCloudfrontAlias = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
 
 	S3TagCloudProvider = "kubernetes.io/cluster/%s"
 	S3TagCluster       = "giantswarm.io/cluster"

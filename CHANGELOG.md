@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Allow using Cloudfront Alias before v19.0.0 via annotation `alpha.aws.giantswarm.io/enable-cloudfront-alias`.
+
 ## [0.12.1] - 2023-04-20
 
 ### Fixed

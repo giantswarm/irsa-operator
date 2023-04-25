@@ -232,7 +232,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				}
 			}
 
-			if key.IsV19Release(s.Scope.Release()) {
+			if key.IsV19Release(s.Scope.Release()) || s.Scope.PreCloudfrontAlias() {
 				data["domainAlias"] = *aliases[0]
 			}
 		}
