@@ -153,7 +153,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 						s.scope.Logger().Info(fmt.Sprintf("Updated tags on OIDCProvider for URL %s", identityProviderURL))
 					}
 					if len(tagsDiff.Removed) > 0 {
-						s.scope.Logger().Info(fmt.Sprintf("Removing undesired tags on OIDCProvider for URL %s (%v)", identityProviderURL, tagsDiff.Removed))
+						s.scope.Logger().Info(fmt.Sprintf("Removing %d undesired tags on OIDCProvider for URL %s", len(tagsDiff.Removed), identityProviderURL))
 						_, err := s.Client.UntagOpenIDConnectProvider(&iam.UntagOpenIDConnectProviderInput{
 							OpenIDConnectProviderArn: &arn,
 							TagKeys:                  tagsDiff.Removed,
