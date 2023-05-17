@@ -54,24 +54,20 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		desiredTags := make([]*iam.Tag, 0)
 		// Add internal and customer tags.
 		{
-
-			// Add internal and customer tags.
-			{
-				for k, v := range s.internalTags() {
-					tag := &iam.Tag{
-						Key:   aws.String(k),
-						Value: aws.String(v),
-					}
-					desiredTags = append(desiredTags, tag)
+			for k, v := range s.internalTags() {
+				tag := &iam.Tag{
+					Key:   aws.String(k),
+					Value: aws.String(v),
 				}
+				desiredTags = append(desiredTags, tag)
+			}
 
-				for k, v := range customerTags {
-					tag := &iam.Tag{
-						Key:   aws.String(k),
-						Value: aws.String(v),
-					}
-					desiredTags = append(desiredTags, tag)
+			for k, v := range customerTags {
+				tag := &iam.Tag{
+					Key:   aws.String(k),
+					Value: aws.String(v),
 				}
+				desiredTags = append(desiredTags, tag)
 			}
 
 			// Add a tag 'giantswarm.io/alias' that has value true for the provider having predictable URL and false for the cloudfront one
