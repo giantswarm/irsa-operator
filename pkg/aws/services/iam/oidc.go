@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
+	"github.com/giantswarm/irsa-operator/pkg/util/tagsdiff"
 	"github.com/giantswarm/microerror"
 	"github.com/nhalstead/sprint"
 	"github.com/pkg/errors"
@@ -50,6 +51,48 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 
 	// Ensure there is one provider for each of the URLs
 	for _, identityProviderURL := range identityProviderURLs {
+		desiredTags := make([]*iam.Tag, 0)
+		// Add internal and customer tags.
+		{
+
+			// Add internal and customer tags.
+			{
+				for k, v := range s.internalTags() {
+					tag := &iam.Tag{
+						Key:   aws.String(k),
+						Value: aws.String(v),
+					}
+					desiredTags = append(desiredTags, tag)
+				}
+
+				for k, v := range customerTags {
+					tag := &iam.Tag{
+						Key:   aws.String(k),
+						Value: aws.String(v),
+					}
+					desiredTags = append(desiredTags, tag)
+				}
+			}
+
+			// Add a tag 'giantswarm.io/alias' that has value true for the provider having predictable URL and false for the cloudfront one
+			val := "true"
+			if strings.HasSuffix(identityProviderURL, "cloudfront.net") {
+				val = "false"
+			}
+			desiredTags = append(desiredTags, &iam.Tag{
+				Key:   aws.String("giantswarm.io/alias"),
+				Value: aws.String(val),
+			})
+
+			for k, v := range customerTags {
+				tag := &iam.Tag{
+					Key:   aws.String(k),
+					Value: aws.String(v),
+				}
+				desiredTags = append(desiredTags, tag)
+			}
+		}
+
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
@@ -57,6 +100,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				found = true
 				thumbprintsDiff := slicediff.DiffIgnoreCase(existing.ThumbprintList, thumbprints)
 				clientidsDiff := slicediff.DiffIgnoreCase(existing.ClientIDList, []*string{&clientID})
+				tagsUpToDate := tagsdiff.Equal(existing.Tags, desiredTags)
 
 				for _, add := range clientidsDiff.Added {
 					s.scope.Logger().Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
@@ -95,6 +139,19 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				} else {
 					s.scope.Logger().Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
 				}
+
+				if !tagsUpToDate {
+					s.scope.Logger().Info(fmt.Sprintf("Updating tags on OIDCProvider for URL %s", identityProviderURL))
+					_, err := s.Client.TagOpenIDConnectProvider(&iam.TagOpenIDConnectProviderInput{
+						OpenIDConnectProviderArn: &arn,
+						Tags:                     desiredTags,
+					})
+					if err != nil {
+						return microerror.Mask(err)
+					}
+					s.scope.Logger().Info(fmt.Sprintf("Updated tags on OIDCProvider for URL %s", identityProviderURL))
+				}
+
 				break
 			}
 		}
@@ -109,25 +166,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 			Url:            aws.String(identityProviderURL),
 			ThumbprintList: thumbprints,
 			ClientIDList:   []*string{aws.String(clientID)},
-		}
-
-		// Add internal and customer tags.
-		{
-			for k, v := range s.internalTags() {
-				tag := &iam.Tag{
-					Key:   aws.String(k),
-					Value: aws.String(v),
-				}
-				i.Tags = append(i.Tags, tag)
-			}
-
-			for k, v := range customerTags {
-				tag := &iam.Tag{
-					Key:   aws.String(k),
-					Value: aws.String(v),
-				}
-				i.Tags = append(i.Tags, tag)
-			}
+			Tags:           desiredTags,
 		}
 
 		_, err = s.Client.CreateOpenIDConnectProvider(i)
