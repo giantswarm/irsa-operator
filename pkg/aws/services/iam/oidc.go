@@ -141,8 +141,8 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				}
 
 				if tagsDiff.Changed {
-					s.scope.Logger().Info(fmt.Sprintf("Updating tags on OIDCProvider for URL %s", identityProviderURL))
 					if len(tagsDiff.Added) > 0 {
+						s.scope.Logger().Info(fmt.Sprintf("Updating tags on OIDCProvider for URL %s to add %v", identityProviderURL, tagsDiff.Added))
 						_, err := s.Client.TagOpenIDConnectProvider(&iam.TagOpenIDConnectProviderInput{
 							OpenIDConnectProviderArn: &arn,
 							Tags:                     desiredTags,
@@ -150,8 +150,10 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 						if err != nil {
 							return microerror.Mask(err)
 						}
+						s.scope.Logger().Info(fmt.Sprintf("Updated tags on OIDCProvider for URL %s", identityProviderURL))
 					}
 					if len(tagsDiff.Removed) > 0 {
+						s.scope.Logger().Info(fmt.Sprintf("Removing undesired tags on OIDCProvider for URL %s (%v)", identityProviderURL, tagsDiff.Removed))
 						_, err := s.Client.UntagOpenIDConnectProvider(&iam.UntagOpenIDConnectProviderInput{
 							OpenIDConnectProviderArn: &arn,
 							TagKeys:                  tagsDiff.Removed,
@@ -159,8 +161,8 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 						if err != nil {
 							return microerror.Mask(err)
 						}
+						s.scope.Logger().Info(fmt.Sprintf("Removed undesired tags on OIDCProvider for URL %s", identityProviderURL))
 					}
-					s.scope.Logger().Info(fmt.Sprintf("Updated tags on OIDCProvider for URL %s", identityProviderURL))
 				}
 
 				break
