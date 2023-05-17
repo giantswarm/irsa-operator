@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
-	"github.com/giantswarm/irsa-operator/pkg/util/tagsdiff"
 	"github.com/giantswarm/microerror"
 	"github.com/nhalstead/sprint"
 	"github.com/pkg/errors"
@@ -22,6 +21,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/key"
 	"github.com/giantswarm/irsa-operator/pkg/util"
 	"github.com/giantswarm/irsa-operator/pkg/util/slicediff"
+	"github.com/giantswarm/irsa-operator/pkg/util/tagsdiff"
 )
 
 func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
