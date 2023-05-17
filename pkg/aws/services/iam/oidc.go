@@ -100,7 +100,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				found = true
 				thumbprintsDiff := slicediff.DiffIgnoreCase(existing.ThumbprintList, thumbprints)
 				clientidsDiff := slicediff.DiffIgnoreCase(existing.ClientIDList, []*string{&clientID})
-				tagsUpToDate := tagsdiff.Equal(existing.Tags, desiredTags)
+				tagsDiff := tagsdiff.Diff(existing.Tags, desiredTags)
 
 				for _, add := range clientidsDiff.Added {
 					s.scope.Logger().Info(fmt.Sprintf("Adding client id %s to OIDCProvider for URL %s", add, identityProviderURL))
@@ -140,14 +140,25 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 					s.scope.Logger().Info(fmt.Sprintf("OIDCProvider for URL %s already exists and is up to date", identityProviderURL))
 				}
 
-				if !tagsUpToDate {
+				if tagsDiff.Changed {
 					s.scope.Logger().Info(fmt.Sprintf("Updating tags on OIDCProvider for URL %s", identityProviderURL))
-					_, err := s.Client.TagOpenIDConnectProvider(&iam.TagOpenIDConnectProviderInput{
-						OpenIDConnectProviderArn: &arn,
-						Tags:                     desiredTags,
-					})
-					if err != nil {
-						return microerror.Mask(err)
+					if len(tagsDiff.Added) > 0 {
+						_, err := s.Client.TagOpenIDConnectProvider(&iam.TagOpenIDConnectProviderInput{
+							OpenIDConnectProviderArn: &arn,
+							Tags:                     desiredTags,
+						})
+						if err != nil {
+							return microerror.Mask(err)
+						}
+					}
+					if len(tagsDiff.Removed) > 0 {
+						_, err := s.Client.UntagOpenIDConnectProvider(&iam.UntagOpenIDConnectProviderInput{
+							OpenIDConnectProviderArn: &arn,
+							TagKeys:                  tagsDiff.Removed,
+						})
+						if err != nil {
+							return microerror.Mask(err)
+						}
 					}
 					s.scope.Logger().Info(fmt.Sprintf("Updated tags on OIDCProvider for URL %s", identityProviderURL))
 				}
