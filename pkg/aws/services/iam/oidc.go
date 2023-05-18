@@ -79,14 +79,6 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				Key:   aws.String("giantswarm.io/alias"),
 				Value: aws.String(val),
 			})
-
-			for k, v := range customerTags {
-				tag := &iam.Tag{
-					Key:   aws.String(k),
-					Value: aws.String(v),
-				}
-				desiredTags = append(desiredTags, tag)
-			}
 		}
 
 		// Check if one of the providers is already using the right URL.
