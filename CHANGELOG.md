@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add 'giantswarm.io/alias' tag to OIDC provider to distinguish between cloudfront and alias domain providers.
+
 ## [0.13.0] - 2023-04-25
 
 ### Added
