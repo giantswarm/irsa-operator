@@ -318,6 +318,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			s.Scope.Logger().Error(err, "failed to block public access")
 			return err
 		}
+	} else {
+		s.Scope.Logger().Error(err, "=============================== allowing public access")
+		err = s.S3.AllowPublicAccess(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger().Error(err, "failed to allow public access")
+			return err
+		}
 	}
 
 	createOIDCProvider := func() error {
