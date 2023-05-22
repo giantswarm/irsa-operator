@@ -312,6 +312,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	// restrict access only for non-China region and v18.x.x release or higher
 	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+		s.Scope.Logger().Error(err, "=============================== blocking public access")
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger().Error(err, "failed to block public access")
