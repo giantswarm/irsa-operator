@@ -18,8 +18,9 @@ const S3BucketEncryptionAlgorithm = "AES256"
 
 func (s *Service) CreateBucket(bucketName string) error {
 	i := &s3.CreateBucketInput{
-		ACL:    aws.String("private"),
-		Bucket: aws.String(bucketName),
+		ACL:             aws.String("private"),
+		Bucket:          aws.String(bucketName),
+		ObjectOwnership: aws.String(s3.ObjectOwnershipObjectWriter),
 	}
 	_, err := s.Client.CreateBucket(i)
 	if err != nil {
