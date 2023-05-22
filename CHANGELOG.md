@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Enable s3 bucket ACL.
+- Enable public access for S3 in china.
+
 ## [0.14.1] - 2023-05-18
 
 ### Fixed

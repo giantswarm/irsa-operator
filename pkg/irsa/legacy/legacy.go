@@ -287,20 +287,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		cfOaiId = data["originAccessIdentityId"]
 	}
 
-	uploadFiles := func() error {
-		domain := cfDomain
-		if len(aliases) > 0 {
-			domain = *aliases[0]
-		}
-		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
-	}
-	err = backoff.Retry(uploadFiles, b)
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger().Error(err, "failed to upload files")
-		return err
-	}
-
 	// restrict access only for non-China region and v18.x.x release or higher
 	if (!key.IsChina(s.Scope.Region()) && key.IsV18Release(s.Scope.Release())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
@@ -317,6 +303,26 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			s.Scope.Logger().Error(err, "failed to block public access")
 			return err
 		}
+	} else {
+		err = s.S3.AllowPublicAccess(s.Scope.BucketName())
+		if err != nil {
+			s.Scope.Logger().Error(err, "failed to allow public access")
+			return err
+		}
+	}
+
+	uploadFiles := func() error {
+		domain := cfDomain
+		if len(aliases) > 0 {
+			domain = *aliases[0]
+		}
+		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
+	}
+	err = backoff.Retry(uploadFiles, b)
+	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+		s.Scope.Logger().Error(err, "failed to upload files")
+		return err
 	}
 
 	createOIDCProvider := func() error {
