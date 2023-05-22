@@ -206,16 +206,16 @@ func (s *Service) AllowPublicAccess(bucketName string) error {
 		Bucket: aws.String(bucketName),
 		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
 			BlockPublicAcls:       aws.Bool(false),
-			BlockPublicPolicy:     aws.Bool(true),
+			BlockPublicPolicy:     aws.Bool(false),
 			IgnorePublicAcls:      aws.Bool(false),
-			RestrictPublicBuckets: aws.Bool(true),
+			RestrictPublicBuckets: aws.Bool(false),
 		},
 	}
 	_, err := s.Client.PutPublicAccessBlock(i)
 	if err != nil {
 		return err
 	}
-	s.scope.Logger().Info("Blocked public access for S3 bucket", bucketName)
+	s.scope.Logger().Info("Allowed public access for S3 bucket", bucketName)
 	return nil
 
 }
