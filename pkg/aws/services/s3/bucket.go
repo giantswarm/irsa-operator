@@ -18,8 +18,9 @@ const S3BucketEncryptionAlgorithm = "AES256"
 
 func (s *Service) CreateBucket(bucketName string) error {
 	i := &s3.CreateBucketInput{
-		ACL:    aws.String("private"),
-		Bucket: aws.String(bucketName),
+		ACL:             aws.String("private"),
+		Bucket:          aws.String(bucketName),
+		ObjectOwnership: aws.String(s3.ObjectOwnershipObjectWriter),
 	}
 	_, err := s.Client.CreateBucket(i)
 	if err != nil {
@@ -196,6 +197,25 @@ func (s *Service) BlockPublicAccess(bucketName string) error {
 		return err
 	}
 	s.scope.Logger().Info("Blocked public access for S3 bucket", bucketName)
+	return nil
+
+}
+
+func (s *Service) AllowPublicAccess(bucketName string) error {
+	i := &s3.PutPublicAccessBlockInput{
+		Bucket: aws.String(bucketName),
+		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
+			BlockPublicAcls:       aws.Bool(false),
+			BlockPublicPolicy:     aws.Bool(false),
+			IgnorePublicAcls:      aws.Bool(false),
+			RestrictPublicBuckets: aws.Bool(false),
+		},
+	}
+	_, err := s.Client.PutPublicAccessBlock(i)
+	if err != nil {
+		return err
+	}
+	s.scope.Logger().Info("Allowed public access for S3 bucket", bucketName)
 	return nil
 
 }
