@@ -147,6 +147,18 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 			},
 			"Action": "s3:GetObject",
 			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*"
+		},
+		{
+			"Sid": "ForceSSLOnlyAccess",
+			"Effect": "Deny",
+			"Principal": "*",
+			"Action": "s3:*",
+			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*"
+			"Condition": {
+			  "Bool": {
+				"aws:SecureTransport": "false"
+			  }
+			}
 		}
 	]
 }`
