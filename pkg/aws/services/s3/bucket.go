@@ -153,7 +153,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 			"Effect": "Deny",
 			"Principal": "*",
 			"Action": "s3:*",
-			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*"
+			"Resource": "arn:{{.ARNPrefix}}:s3:::{{.BucketName}}/*",
 			"Condition": {
 			  "Bool": {
 				"aws:SecureTransport": "false"
