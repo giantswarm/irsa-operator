@@ -110,6 +110,18 @@ func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
 		return nil, err
 	}
 
+	s.scope.Logger().Info("GetValidationCNAME", "len", len(output.Certificate.DomainValidationOptions))
+
+	if len(output.Certificate.DomainValidationOptions) != 0 {
+		s.scope.Logger().Info("GetValidationCNAME output not empty")
+		if output.Certificate.DomainValidationOptions[0].ResourceRecord == nil {
+			s.scope.Logger().Info("GetValidationCNAME record not empty")
+			if output.Certificate.DomainValidationOptions[0].ResourceRecord.Name == nil {
+				s.scope.Logger().Info("GetValidationCNAME name not empty", "name", output.Certificate.DomainValidationOptions[0].ResourceRecord.Name)
+			}
+		}
+	}
+
 	// If certificate is just created, validation data might be missing.
 	if len(output.Certificate.DomainValidationOptions) == 0 ||
 		output.Certificate.DomainValidationOptions[0].ResourceRecord == nil ||

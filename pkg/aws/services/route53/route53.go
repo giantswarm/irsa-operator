@@ -34,6 +34,7 @@ func (s *Service) findHostedZone(basename string, public bool) (string, error) {
 	// We return the first zone found that matches the basename and is public or not according to the parameter.
 	for _, zone := range output.HostedZones {
 		if public == !*zone.Config.PrivateZone {
+			s.scope.Logger().Info("found zone", "zone: ", *zone.Name, "zone private: ", *zone.Config.PrivateZone, "zone id: ", *zone.Id)
 			return *zone.Id, nil
 		}
 	}
