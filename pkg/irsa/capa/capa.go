@@ -542,10 +542,7 @@ func (s *Service) getCloudFrontAliasDomain(ctx context.Context, baseDomain strin
 	} else if err != nil {
 		return "", err
 	} else {
-		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
-		if private != "private" {
-			return key.CloudFrontAlias(baseDomain), nil
-		}
+		return key.CloudFrontAlias(baseDomain), nil
 	}
 	return "", nil
 }
