@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/record"
 	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -85,13 +86,26 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if accountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", string(arn)))
+	}
+
+	// Fetch config map created by cluster-apps-operator
+	clusterValues := &v1.ConfigMap{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: fmt.Sprintf("%s-cluster-values", cluster.Name)}, clusterValues)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
+	}
+
+	baseDomain, err := getBaseDomain(clusterValues)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
 	}
 
 	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,
 		ARN:              arn,
+		BaseDomain:       baseDomain,
 		BucketName:       key.BucketName(accountID, cluster.Name),
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
@@ -101,6 +115,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
 		ReleaseVersion: "20.0.0-alpha1",
 		SecretName:     key.SecretName(cluster.Name),
+		VPCMode:        cluster.Annotations["aws.giantswarm.io/vpc-mode"],
 
 		Logger:  logger,
 		Cluster: cluster,
@@ -119,20 +134,36 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 
 		err := irsaService.Delete(ctx)
+		if errors.Is(err, &irsaCapa.CloudfrontDistributionNotDisabledError{}) {
+			// Distribution is not disabled yet, let's try again in 1 minute
+			return ctrl.Result{RequeueAfter: time.Minute * 1}, nil
+		}
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
+		patchHelperClusterValuesConfigMap, err := patch.NewHelper(clusterValues, r.Client)
+		if err != nil {
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		controllerutil.RemoveFinalizer(clusterValues, key.FinalizerName)
+		err = patchHelperClusterValuesConfigMap.Patch(ctx, clusterValues)
+		if err != nil {
+			logger.Error(err, "failed to remove finalizer from cluster values ConfigMap")
+			return ctrl.Result{}, microerror.Mask(err)
+		}
+		logger.Info("successfully removed finalizer from cluster values ConfigMap")
+
 		patchHelper, err := patch.NewHelper(cluster, r.Client)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, microerror.Mask(err)
 		}
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = patchHelper.Patch(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "failed to remove finalizer from AWSCluster")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, microerror.Mask(err)
 		}
 		logger.Info("successfully removed finalizer from AWSCluster")
 
@@ -141,6 +172,21 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	} else {
 		created := false
+		// First add finalizer on cluster values ConfigMap since we need it to get the base domain (even on deletion)
+		if !controllerutil.ContainsFinalizer(clusterValues, key.FinalizerName) {
+			patchHelper, err := patch.NewHelper(clusterValues, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.AddFinalizer(clusterValues, key.FinalizerName)
+			err = patchHelper.Patch(ctx, clusterValues)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on cluster values ConfigMap")
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("successfully added finalizer to cluster values ConfigMap")
+		}
+
 		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
 			created = true
 
@@ -167,11 +213,33 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 
 		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
-		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Minute * 5,
-		}, nil
+		return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
 	}
+}
+
+func getBaseDomain(clusterValuesConfigMap *v1.ConfigMap) (string, error) {
+	jsonStr := clusterValuesConfigMap.Data["values"]
+	if jsonStr == "" {
+		return "", microerror.Mask(clusterValuesConfigMapNotFound)
+	}
+
+	type clusterValues struct {
+		BaseDomain string `yaml:"baseDomain"`
+	}
+
+	cv := clusterValues{}
+
+	err := yaml.Unmarshal([]byte(jsonStr), &cv)
+	if err != nil {
+		return "", err
+	}
+
+	baseDomain := cv.BaseDomain
+	if baseDomain == "" {
+		return "", microerror.Mask(baseDomainNotFound)
+	}
+
+	return baseDomain, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

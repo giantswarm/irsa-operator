@@ -16,13 +16,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	"github.com/giantswarm/irsa-operator/pkg/aws/services/acm"
@@ -72,24 +67,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// First add finalizer on cluster values ConfigMap since we need it to get the base domain (even on deletion)
-	clusterValuesConfigMap, err := s.getClusterValuesConfigMap(ctx)
-	if err != nil {
-		return err
-	}
-	if !controllerutil.ContainsFinalizer(clusterValuesConfigMap, key.FinalizerName) {
-		patchHelper, err := patch.NewHelper(clusterValuesConfigMap, s.Client)
-		if err != nil {
-			return errors.Wrapf(err, "failed to add finalizer on cluster values ConfigMap")
-		}
-		controllerutil.AddFinalizer(clusterValuesConfigMap, key.FinalizerName)
-		err = patchHelper.Patch(ctx, clusterValuesConfigMap)
-		if err != nil {
-			return errors.Wrapf(err, "failed to add finalizer on cluster values ConfigMap")
-		}
-		s.Scope.Logger().Info("successfully added finalizer to cluster values ConfigMap")
-	}
-
 	b := backoff.NewMaxRetries(3, 5*time.Second)
 
 	err = s.S3.IsBucketReady(s.Scope.BucketName())
@@ -128,16 +105,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	customerTags := key.GetCustomerTags(cluster)
 
-	baseDomain, err := s.getBaseDomain(clusterValuesConfigMap, ctx)
-	if err != nil {
-		return err
-	}
-
-	cloudfrontAliasDomain, err := s.getCloudFrontAliasDomain(ctx, baseDomain)
-	if err != nil {
-		return err
-	}
-
 	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
@@ -152,6 +119,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	distribution := &cloudfront.Distribution{}
 	// Add Cloudfront only for non-China region
 	if !key.IsChina(s.Scope.Region()) {
+		cloudfrontAliasDomain := s.getCloudFrontAliasDomain()
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
 			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
@@ -169,7 +137,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 
-			hostedZoneID, err = s.Route53.FindPublicHostedZone(baseDomain)
+			hostedZoneID, err = s.Route53.FindPublicHostedZone(s.Scope.BaseDomain())
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger().Error(err, "failed to find route53 hosted zone ID")
@@ -373,11 +341,15 @@ func (s *Service) Delete(ctx context.Context) error {
 		return err
 	}
 
-	var cfDistributionId string
-	var cfOriginAccessIdentityId string
-	cfConfig := &v1.Secret{}
+	err = s.IAM.DeleteOIDCProviders()
+	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+		s.Scope.Logger().Error(err, "failed to delete OIDC provider")
+		return err
+	}
 
 	if !key.IsChina(s.Scope.Region()) {
+		cfConfig := &v1.Secret{}
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
 		if apierrors.IsNotFound(err) {
 			s.Scope.Logger().Info("Secret for OIDC cloudfront does not exist anymore, skipping")
@@ -388,40 +360,20 @@ func (s *Service) Delete(ctx context.Context) error {
 		}
 
 		data := cfConfig.Data
-		cfDistributionId = string(data["distributionId"])
-		cfOriginAccessIdentityId = string(data["originAccessIdentityId"])
-	}
+		cfDistributionId := string(data["distributionId"])
+		cfOriginAccessIdentityId := string(data["originAccessIdentityId"])
 
-	err = s.IAM.DeleteOIDCProviders()
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger().Error(err, "failed to delete OIDC provider")
-		return err
-	}
-
-	clusterValuesConfigMap, err := s.getClusterValuesConfigMap(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !key.IsChina(s.Scope.Region()) {
 		err = s.Cloudfront.DisableDistribution(cfDistributionId)
 		if err != nil {
 			s.Scope.Logger().Error(err, "failed to disable cloudfront distribution for cluster")
 			return err
 		}
 
-		deleteDistribution := func() error {
-			err = s.Cloudfront.DeleteDistribution(cfDistributionId)
-			if err != nil {
-				return err
-			}
-			return nil
+		err = s.Cloudfront.DeleteDistribution(cfDistributionId)
+		if errors.Is(err, &cloudfront.DistributionNotDisabledError{}) {
+			return &CloudfrontDistributionNotDisabledError{}
 		}
-
-		err = backoff.Retry(deleteDistribution, backoff.NewMaxRetries(30, 1*time.Minute))
 		if err != nil {
-			s.Scope.Logger().Error(err, "failed to delete cloudfront distribution")
 			return err
 		}
 
@@ -442,34 +394,11 @@ func (s *Service) Delete(ctx context.Context) error {
 			return microerror.Mask(err)
 		}
 
-		baseDomain, err := s.getBaseDomain(clusterValuesConfigMap, ctx)
-		if err != nil {
-			return err
-		}
-
-		cloudFrontAliasDomain, err := s.getCloudFrontAliasDomain(ctx, baseDomain)
-		if err != nil {
-			return err
-		}
-
-		err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
+		err = s.ACM.DeleteCertificate(s.getCloudFrontAliasDomain())
 		if err != nil {
 			s.Scope.Logger().Error(err, "error deleting ACM certificate")
 			return err
 		}
-	}
-
-	if controllerutil.ContainsFinalizer(clusterValuesConfigMap, key.FinalizerName) {
-		patchHelper, err := patch.NewHelper(clusterValuesConfigMap, s.Client)
-		if err != nil {
-			return errors.Wrapf(err, "failed to remove finalizer from cluster values ConfigMap")
-		}
-		controllerutil.RemoveFinalizer(clusterValuesConfigMap, key.FinalizerName)
-		err = patchHelper.Patch(ctx, clusterValuesConfigMap)
-		if err != nil {
-			return errors.Wrapf(err, "failed to remove finalizer from cluster values ConfigMap")
-		}
-		s.Scope.Logger().Info("successfully removed finalizer from cluster values ConfigMap")
 	}
 
 	ctrlmetrics.Errors.DeleteLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace())
@@ -493,59 +422,10 @@ func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, er
 	return privateKey, nil
 }
 
-func (s *Service) getClusterValuesConfigMap(ctx context.Context) (*v1.ConfigMap, error) {
-	// Fetch config map created by cluster-apps-operator
-	cm := v1.ConfigMap{}
-	err := s.Client.Get(
-		ctx,
-		types.NamespacedName{
-			Namespace: s.Scope.ClusterNamespace(),
-			Name:      fmt.Sprintf("%s-cluster-values", s.Scope.ClusterName()),
-		},
-		&cm)
-	if err != nil {
-		return nil, err
-	}
-	return &cm, nil
-}
-
-func (s *Service) getBaseDomain(clusterValuesConfigMap *v1.ConfigMap, ctx context.Context) (string, error) {
-	jsonStr := clusterValuesConfigMap.Data["values"]
-	if jsonStr == "" {
-		return "", microerror.Mask(clusterValuesConfigMapNotFound)
+func (s *Service) getCloudFrontAliasDomain() string {
+	if s.Scope.VPCMode() != "private" {
+		return key.CloudFrontAlias(s.Scope.BaseDomain())
 	}
 
-	type clusterValues struct {
-		BaseDomain string `yaml:"baseDomain"`
-	}
-
-	cv := clusterValues{}
-
-	err := yaml.Unmarshal([]byte(jsonStr), &cv)
-	if err != nil {
-		return "", err
-	}
-
-	baseDomain := cv.BaseDomain
-	if baseDomain == "" {
-		return "", microerror.Mask(baseDomainNotFound)
-	}
-
-	return baseDomain, nil
-}
-
-func (s *Service) getCloudFrontAliasDomain(ctx context.Context, baseDomain string) (string, error) {
-	awscluster := &capa.AWSCluster{}
-	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, awscluster)
-	if apierrors.IsNotFound(err) {
-		// fallthrough
-	} else if err != nil {
-		return "", err
-	} else {
-		private := awscluster.Annotations["aws.giantswarm.io/vpc-mode"]
-		if private != "private" {
-			return key.CloudFrontAlias(baseDomain), nil
-		}
-	}
-	return "", nil
+	return ""
 }
