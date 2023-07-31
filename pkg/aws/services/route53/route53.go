@@ -33,8 +33,10 @@ func (s *Service) findHostedZone(basename string, public bool) (string, error) {
 
 	// We return the first zone found that matches the basename and is public or not according to the parameter.
 	for _, zone := range output.HostedZones {
-		if public == !*zone.Config.PrivateZone {
-			return *zone.Id, nil
+		if *zone.Name == basename {
+			if public == !*zone.Config.PrivateZone {
+				return *zone.Id, nil
+			}
 		}
 	}
 
