@@ -112,7 +112,7 @@ func main() {
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
+			setupLog.Error(err, "unable to create controller", "controller", "AWSManagedControlPlane")
 			os.Exit(1)
 		}
 

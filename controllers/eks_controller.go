@@ -55,12 +55,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
 
-	logger.Info("Reconciling AWSManagedCluster for EKS")
-
-	cluster := &capa.AWSManagedCluster{}
-	if err = r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		return ctrl.Result{}, microerror.Mask(err)
-	}
+	logger.Info("Reconciling AWSManagedControlPlane")
 
 	eksCluster := &eks.AWSManagedControlPlane{}
 	if err = r.Get(ctx, req.NamespacedName, eksCluster); err != nil {
@@ -88,18 +83,18 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		AccountID:        accountID,
 		ARN:              arn,
-		BucketName:       key.BucketName(accountID, cluster.Name),
-		ClusterName:      cluster.Name,
-		ClusterNamespace: cluster.Namespace,
-		ConfigName:       key.ConfigName(cluster.Name),
+		BucketName:       key.BucketName(accountID, eksCluster.Name),
+		ClusterName:      eksCluster.Name,
+		ClusterNamespace: eksCluster.Namespace,
+		ConfigName:       key.ConfigName(eksCluster.Name),
 		Installation:     r.Installation,
 		Region:           eksCluster.Spec.Region,
 		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
 		ReleaseVersion: "20.0.0-alpha1",
-		SecretName:     key.SecretName(cluster.Name),
+		SecretName:     key.SecretName(eksCluster.Name),
 
 		Logger:  logger,
-		Cluster: cluster,
+		Cluster: eksCluster,
 	})
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
@@ -108,48 +103,48 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Create IRSA service.
 	irsaService := irsaEks.New(clusterScope, r.Client)
 
-	if cluster.DeletionTimestamp != nil {
-		finalizers := cluster.GetFinalizers()
+	if eksCluster.DeletionTimestamp != nil {
+		finalizers := eksCluster.GetFinalizers()
 		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
 			return ctrl.Result{}, nil
 		}
+		logger.Info("Deleting IRSA resources for cluster")
 
 		err := irsaService.Delete(ctx)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		patchHelper, err := patch.NewHelper(cluster, r.Client)
+		patchHelper, err := patch.NewHelper(eksCluster, r.Client)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = patchHelper.Patch(ctx, cluster)
+		controllerutil.RemoveFinalizer(eksCluster, key.FinalizerName)
+		err = patchHelper.Patch(ctx, eksCluster)
 		if err != nil {
-			logger.Error(err, "failed to remove finalizer from AWSManagedCluster")
+			logger.Error(err, "failed to remove finalizer from AWSManagedControlPlane")
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		logger.Info("successfully removed finalizer from AWSManagedCluster")
+		logger.Info("successfully removed finalizer from AWSManagedControlPlane")
 
-		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
-
+		r.sendEvent(eksCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 		return ctrl.Result{}, nil
 	} else {
 		created := false
-		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
+		if !controllerutil.ContainsFinalizer(eksCluster, key.FinalizerName) {
 			created = true
 
-			patchHelper, err := patch.NewHelper(cluster, r.Client)
+			patchHelper, err := patch.NewHelper(eksCluster, r.Client)
 			if err != nil {
 				return ctrl.Result{}, microerror.Mask(err)
 			}
-			controllerutil.AddFinalizer(cluster, key.FinalizerName)
-			err = patchHelper.Patch(ctx, cluster)
+			controllerutil.AddFinalizer(eksCluster, key.FinalizerName)
+			err = patchHelper.Patch(ctx, eksCluster)
 			if err != nil {
-				logger.Error(err, "failed to add finalizer on AWSManagedCluster")
+				logger.Error(err, "failed to add finalizer on AWSManagedControlPlane")
 				return ctrl.Result{}, microerror.Mask(err)
 			}
-			logger.Info("successfully added finalizer to AWSManagedCluster")
+			logger.Info("successfully added finalizer to AWSManagedControlPlane")
 		}
 
 		err := irsaService.Reconcile(ctx)
@@ -158,7 +153,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 
 		if created {
-			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
+			r.sendEvent(eksCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
 		return ctrl.Result{
@@ -170,7 +165,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EKSClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&capa.AWSManagedCluster{}).
+		For(&eks.AWSManagedControlPlane{}).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err, "failed setting up with a controller manager")
@@ -180,6 +175,6 @@ func (r *EKSClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *EKSClusterReconciler) sendEvent(cluster *capa.AWSManagedCluster, eventtype, reason, message string) {
-	r.recorder.Eventf(cluster, v1.EventTypeNormal, reason, message)
+func (r *EKSClusterReconciler) sendEvent(eksCluster *eks.AWSManagedControlPlane, eventtype, reason, message string) {
+	r.recorder.Eventf(eksCluster, v1.EventTypeNormal, reason, message)
 }
