@@ -95,6 +95,10 @@ func (r *CAPIClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		roleIdentityName = eksCluster.Spec.IdentityRef.Name
 		region = eksCluster.Spec.Region
+	} else {
+		// unsupported infrastructure
+		logger.Info(fmt.Sprintf("Unsupported infrastructureRef Kind %s, cancelling reconcilation", cluster.Spec.InfrastructureRef.Kind))
+		return ctrl.Result{}, nil
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
