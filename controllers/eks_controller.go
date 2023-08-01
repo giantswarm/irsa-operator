@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
@@ -130,6 +131,14 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		r.sendEvent(eksCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 		return ctrl.Result{}, nil
 	} else {
+		if !eksCluster.Status.Ready {
+			logger.Info("EKS control plane is not ready yet")
+			return ctrl.Result{
+				RequeueAfter: time.Minute,
+				Requeue:      true,
+			}, nil
+		}
+
 		created := false
 		if !controllerutil.ContainsFinalizer(eksCluster, key.FinalizerName) {
 			created = true
