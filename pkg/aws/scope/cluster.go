@@ -46,9 +46,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.ARN == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string ARN")
 	}
-	if params.BaseDomain == "" {
-		return nil, errors.New("failed to generate new scope from emtpy string BaseDomain")
-	}
 	if params.BucketName == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
 	}
