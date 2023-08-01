@@ -22,6 +22,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/klog/v2/klogr"
+	eks "sigs.k8s.io/cluster-api-provider-aws/controlplane/eks/api/v1beta1"
 	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,6 +42,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = capa.AddToScheme(scheme)
 	_ = capi.AddToScheme(scheme)
+	_ = eks.AddToScheme(scheme)
 	_ = infrastructurev1alpha3.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -52,6 +54,7 @@ func main() {
 	var legacy bool
 	var probeAddr string
 	var installation string
+	var watchFilterValue string
 
 	flag.BoolVar(&capa, "capa", false, "Reconciles on CAPA resources.")
 	flag.BoolVar(&legacy, "legacy", false, "Reconciles on GiantSwarm AWS resources.")
@@ -61,6 +64,8 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&watchFilterValue, "watch-filter", "capi", "Watch filter value")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -95,11 +100,12 @@ func main() {
 	}
 
 	if capa {
-		if err = (&controllers.CAPAClusterReconciler{
-			Client:       mgr.GetClient(),
-			Log:          ctrl.Log.WithName("capa-controller"),
-			Scheme:       mgr.GetScheme(),
-			Installation: installation,
+		if err = (&controllers.CAPIClusterReconciler{
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("capa-controller"),
+			Scheme:           mgr.GetScheme(),
+			Installation:     installation,
+			WatchFilterValue: watchFilterValue,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			os.Exit(1)

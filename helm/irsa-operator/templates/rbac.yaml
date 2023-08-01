@@ -25,6 +25,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - controlplane.cluster.x-k8s.io
+  resources:
+  - awsmanagedcontrolplanes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
     - ""
   resources:
     - secrets

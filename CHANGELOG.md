@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Added
+
+- Add EKS support.
+
 ### Changed
 
+- CAPI: reconcile `Cluster` CR instead `AWSCluster`.
 - Build chart using `app-build-suite`.
 
 ## [0.17.1] - 2023-07-17
