@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
-	irsaCapa "github.com/giantswarm/irsa-operator/pkg/irsa/capa"
+	irsaEks "github.com/giantswarm/irsa-operator/pkg/irsa/eks"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 )
 
@@ -115,7 +115,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Create IRSA service.
-	irsaService := irsaCapa.New(clusterScope, r.Client)
+	irsaService := irsaEks.New(clusterScope, r.Client)
 
 	if cluster.DeletionTimestamp != nil {
 		finalizers := cluster.GetFinalizers()
