@@ -21,7 +21,6 @@ require (
 	k8s.io/component-base v0.25.0
 	k8s.io/klog/v2 v2.80.1
 	sigs.k8s.io/cluster-api v1.3.1
-	sigs.k8s.io/cluster-api-provider-aws v1.5.5
 	sigs.k8s.io/cluster-api-provider-aws/v2 v2.0.2
 	sigs.k8s.io/controller-runtime v0.13.1
 )
