@@ -185,5 +185,5 @@ func (r *EKSClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *EKSClusterReconciler) sendEvent(eksCluster *eks.AWSManagedControlPlane, eventtype, reason, message string) {
-	r.recorder.Eventf(eksCluster, v1.EventTypeNormal, reason, message)
+	r.recorder.Eventf(eksCluster, eventtype, reason, message)
 }
