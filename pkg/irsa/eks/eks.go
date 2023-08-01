@@ -2,10 +2,8 @@ package eks
 
 import (
 	"context"
-	"time"
 
-	"github.com/giantswarm/backoff"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"github.com/giantswarm/microerror"
 	"k8s.io/apimachinery/pkg/types"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,26 +37,19 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	oidcURL, err := s.EKS.GetEKSOpenIDConnectProviderURL(s.Scope.ClusterName())
 	if err != nil {
 		s.Scope.Logger().Error(err, "failed to fetch EKS OIDC issuer URL")
-		return err
+		return microerror.Mask(err)
 	}
+	identityProviderURLs := []string{oidcURL}
 
 	// Fetch custom tags from Cluster CR
 	cluster := &capi.Cluster{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
-	if apierrors.IsNotFound(err) {
-		// fallthrough
-	} else if err != nil {
-		return err
+	if err != nil {
+		return microerror.Mask(err)
 	}
 	customerTags := key.GetCustomerTags(cluster)
 
-	identityProviderURLs := []string{oidcURL}
-
-	b := backoff.NewMaxRetries(3, 5*time.Second)
-	createOIDCProvider := func() error {
-		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
-	}
-	err = backoff.Retry(createOIDCProvider, b)
+	err = s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to create OIDC provider")

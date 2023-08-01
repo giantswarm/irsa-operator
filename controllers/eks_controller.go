@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"time"
 
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
@@ -52,14 +51,6 @@ type EKSClusterReconciler struct {
 	recorder     record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsmanagedcluster,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsmanagedcluster/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsmanagedcluster/finalizers,verbs=update
-
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
@@ -67,13 +58,13 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	logger.Info("Reconciling AWSManagedCluster for EKS")
 
 	cluster := &capa.AWSManagedCluster{}
-	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
-		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
+	if err = r.Get(ctx, req.NamespacedName, cluster); err != nil {
+		return ctrl.Result{}, microerror.Mask(err)
 	}
 
 	eksCluster := &eks.AWSManagedControlPlane{}
-	if err := r.Get(ctx, req.NamespacedName, eksCluster); err != nil {
-		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
+	if err = r.Get(ctx, req.NamespacedName, eksCluster); err != nil {
+		return ctrl.Result{}, microerror.Mask(err)
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
@@ -119,7 +110,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if cluster.DeletionTimestamp != nil {
 		finalizers := cluster.GetFinalizers()
-		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) {
 			return ctrl.Result{}, nil
 		}
 
@@ -170,10 +161,8 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
-		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
 		return ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Minute * 5,
+			Requeue: true,
 		}, nil
 	}
 }
