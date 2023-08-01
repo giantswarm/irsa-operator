@@ -130,13 +130,13 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		patchHelper, err := patch.NewHelper(cluster, r.Client)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, microerror.Mask(err)
 		}
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = patchHelper.Patch(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "failed to remove finalizer from AWSManagedCluster")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, microerror.Mask(err)
 		}
 		logger.Info("successfully removed finalizer from AWSManagedCluster")
 
