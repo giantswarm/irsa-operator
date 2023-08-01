@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Filter hosted zone by zone name when trying to find hosted zone ID.
+
 ### Changed
 
 - Build chart using `app-build-suite`.

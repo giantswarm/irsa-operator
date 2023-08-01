@@ -2,6 +2,7 @@ package route53
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -21,22 +22,20 @@ func (s *Service) FindPrivateHostedZone(basename string) (string, error) {
 	return s.findHostedZone(basename, false)
 }
 
-func (s *Service) findHostedZone(basename string, public bool) (string, error) {
+func (s *Service) findHostedZone(zoneName string, public bool) (string, error) {
 	s.scope.Logger().Info("Searching route53 hosted zone ID")
 
-	output, err := s.Client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{
-		DNSName: aws.String(basename),
+	listResponse, err := s.Client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{
+		DNSName: aws.String(zoneName),
 	})
 	if err != nil {
 		return "", microerror.Mask(err)
 	}
 
 	// We return the first zone found that matches the basename and is public or not according to the parameter.
-	for _, zone := range output.HostedZones {
-		if *zone.Name == basename {
-			if public == !*zone.Config.PrivateZone {
-				return *zone.Id, nil
-			}
+	for _, zone := range listResponse.HostedZones {
+		if *zone.Name == fmt.Sprintf("%s.", strings.TrimSuffix(zoneName, ".")) && public == !*zone.Config.PrivateZone {
+			return *zone.Id, nil
 		}
 	}
 
