@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
+	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -22,6 +23,7 @@ type AWSClients struct {
 	S3         *s3.S3
 	IAM        *iam.IAM
 	Cloudfront *cloudfront.CloudFront
+	EKS        *eks.EKS
 }
 
 // NewACMClient creates a new ACM API client for a given session
@@ -45,6 +47,15 @@ func NewCloudfrontClient(session aws.Session, arn string, target runtime.Object)
 	CloudfrontClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
 
 	return CloudfrontClient
+}
+
+// NewEKSClient creates a new EKS API client for a given session
+func NewEKSClient(session aws.Session, arn string, target runtime.Object) *eks.EKS {
+	EKSClient := eks.New(session.Session(), &awsclient.Config{Credentials: stscreds.NewCredentials(session.Session(), arn)})
+	EKSClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	EKSClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return EKSClient
 }
 
 // NewRoute53Client creates a new route53 API client for a given session

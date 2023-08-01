@@ -66,6 +66,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed h1:ue9pVfIcP+QMEjfgo/Ez4ZjNZfonGgR6NgjMaJMu1Cg=
+github.com/apparentlymart/go-cidr v1.1.0 h1:2mAhrMoF+nhXqxTzSZMUzDHkLjmIHC+Zzn4tdgBZjnU=
+github.com/apparentlymart/go-cidr v1.1.0/go.mod h1:EBcsNrHc3zQeuaeCeCtQruQm+n9/YjEn/vI25Lg7Gwc=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
@@ -845,6 +847,8 @@ rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
 sigs.k8s.io/cluster-api v1.3.1 h1:sFd/ayOhQxd4YZX1qw8HC2xO7eKRBNRL+mlCKwdVhvY=
 sigs.k8s.io/cluster-api v1.3.1/go.mod h1:ef5vvtp2PyhEHTYCw8niaVPlOX5Ntvrh+8oBZt0PJ08=
+sigs.k8s.io/cluster-api-provider-aws v1.5.5 h1:+HbGNfw5OV1ifUOTs8aCk2ujiLtCt+jMirjrWtUUQbs=
+sigs.k8s.io/cluster-api-provider-aws v1.5.5/go.mod h1:67wutYFBvXPdpBOs0JJpmLUMbf+1ay5IZ5m+Hdey3cA=
 sigs.k8s.io/cluster-api-provider-aws/v2 v2.0.2 h1:WjTt0uyUG+FJBodnrSzb1L3mHfkIgtgMnNQQ+NJMuT8=
 sigs.k8s.io/cluster-api-provider-aws/v2 v2.0.2/go.mod h1:ZKM3W39Pl7uPuuB6mT/dWakgy1O8OcivGRCAZqSP+Hs=
 sigs.k8s.io/controller-runtime v0.13.1 h1:tUsRCSJVM1QQOOeViGeX3GMT3dQF1eePPw6sEE3xSlg=
