@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Build chart using `app-build-suite`.
+- Avoid blocking the reconciliation loop when deleting the cloudfront distribution.
 
 ## [0.17.1] - 2023-07-17
 

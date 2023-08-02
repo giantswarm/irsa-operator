@@ -19,6 +19,7 @@ import (
 type ClusterScopeParams struct {
 	AccountID          string
 	ARN                string
+	BaseDomain         string
 	BucketName         string
 	Cluster            runtime.Object
 	ClusterName        string
@@ -30,6 +31,7 @@ type ClusterScopeParams struct {
 	Region             string
 	ReleaseVersion     string
 	SecretName         string
+	VPCMode            string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -96,6 +98,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	return &ClusterScope{
 		accountID:          params.AccountID,
 		assumeRole:         params.ARN,
+		baseDomain:         params.BaseDomain,
 		bucketName:         params.BucketName,
 		cluster:            params.Cluster,
 		clusterName:        params.ClusterName,
@@ -108,6 +111,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		releaseVersion:     params.ReleaseVersion,
 		releaseSemver:      releaseSemver,
 		secretName:         params.SecretName,
+		vpcMode:            params.VPCMode,
 
 		Logr:    params.Logger,
 		session: session,
@@ -117,6 +121,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
 	accountID          string
+	baseDomain         string
 	bucketName         string
 	assumeRole         string
 	cluster            runtime.Object
@@ -130,6 +135,7 @@ type ClusterScope struct {
 	releaseVersion     string
 	releaseSemver      semver.Version
 	secretName         string
+	vpcMode            string
 
 	Logr    logr.Logger
 	session awsclient.ConfigProvider
@@ -147,6 +153,11 @@ func (s *ClusterScope) AccountID() string {
 // ARN returns the AWS SDK assumed role.
 func (s *ClusterScope) ARN() string {
 	return s.assumeRole
+}
+
+// BaseDomain returns the cluster DNS zone.
+func (s *ClusterScope) BaseDomain() string {
+	return s.baseDomain
 }
 
 // BucketName returns the name of the OIDC S3 bucket.
@@ -216,4 +227,9 @@ func (s *ClusterScope) SecretName() string {
 // Session returns the AWS SDK session.
 func (s *ClusterScope) Session() awsclient.ConfigProvider {
 	return s.session
+}
+
+// VPCMode returns the VPC mode used on this cluster.
+func (s *ClusterScope) VPCMode() string {
+	return s.vpcMode
 }

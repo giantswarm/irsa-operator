@@ -286,6 +286,12 @@ func (s *Service) DisableDistribution(distributionId string) error {
 		}
 		return err
 	}
+
+	// If it's already disabled, let's return early, nothing to do here
+	if !*distributionConfig.Enabled {
+		return nil
+	}
+
 	distributionConfig.SetEnabled(false)
 	i := &cloudfront.UpdateDistributionInput{
 		DistributionConfig: distributionConfig,
@@ -319,9 +325,6 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
-			case cloudfront.ErrCodeDistributionNotDisabled:
-				s.scope.Logger().Info("Cloudfront distribution is not disabled yet, waiting ...")
-				return err
 			case cloudfront.ErrCodeNoSuchDistribution:
 				s.scope.Logger().Info("Cloudfront distribution no longer exists, skipping deletion")
 				return nil
@@ -338,9 +341,13 @@ func (s *Service) DeleteDistribution(distributionId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudfront.ErrCodeDistributionNotDisabled:
-				s.scope.Logger().Info("Cloudfront distribution is not disabled yet, waiting ...")
-				return err
+				s.scope.Logger().Info("Cloudfront distribution is not disabled yet")
+				return &DistributionNotDisabledError{}
+			case cloudfront.ErrCodeNoSuchDistribution:
+				s.scope.Logger().Info("Cloudfront distribution no longer exists, skipping deletion")
+				return nil
 			}
+
 		}
 		s.scope.Logger().Error(err, "Error deleting cloudfront distribution")
 		return err

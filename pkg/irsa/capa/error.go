@@ -1,15 +1,23 @@
 package capa
 
-import "github.com/giantswarm/microerror"
+import (
+	"reflect"
+
+	"github.com/giantswarm/microerror"
+)
 
 var certificateNotIssuedError = &microerror.Error{
 	Kind: "certificateNotIssuedError",
 }
 
-var clusterValuesConfigMapNotFound = &microerror.Error{
-	Kind: "clusterValuesConfigMapNotFoundError",
+type CloudfrontDistributionNotDisabledError struct {
+	error
 }
 
-var baseDomainNotFound = &microerror.Error{
-	Kind: "baseDomainNotFoundError",
+func (e *CloudfrontDistributionNotDisabledError) Error() string {
+	return "dns record type is not supported"
+}
+
+func (e *CloudfrontDistributionNotDisabledError) Is(target error) bool {
+	return reflect.TypeOf(target) == reflect.TypeOf(e)
 }
