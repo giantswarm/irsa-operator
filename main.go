@@ -22,7 +22,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/klog/v2/klogr"
-	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta1"
+	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
+	eks "sigs.k8s.io/cluster-api-provider-aws/v2/controlplane/eks/api/v1beta2"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -41,6 +42,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = capa.AddToScheme(scheme)
 	_ = capi.AddToScheme(scheme)
+	_ = eks.AddToScheme(scheme)
 	_ = infrastructurev1alpha3.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -104,6 +106,16 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			os.Exit(1)
 		}
+		if err = (&controllers.EKSClusterReconciler{
+			Client:       mgr.GetClient(),
+			Log:          ctrl.Log.WithName("eks-controller"),
+			Scheme:       mgr.GetScheme(),
+			Installation: installation,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AWSManagedControlPlane")
+			os.Exit(1)
+		}
+
 	}
 	// +kubebuilder:scaffold:builder
 

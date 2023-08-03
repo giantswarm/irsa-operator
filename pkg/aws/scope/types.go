@@ -9,6 +9,11 @@ type ACMScope interface {
 	aws.ClusterScoper
 }
 
+// EKSScope is a scope for use with the EKS reconciling service in cluster
+type EKSScope interface {
+	aws.ClusterScoper
+}
+
 // CloudfrontScope is a scope for use with the Cloudfront reconciling service in cluster
 type CloudfrontScope interface {
 	aws.ClusterScoper

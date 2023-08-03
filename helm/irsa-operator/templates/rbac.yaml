@@ -11,6 +11,8 @@ rules:
   - infrastructure.giantswarm.io
   resources:
   - awsclusters
+  - awsmanagedclusters
+  - awsmanagedclusters/status
   - awsclusters/status
   - awsclusterroleidentities
   - awsclusterroleidentities/status
@@ -24,6 +26,16 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+    - controlplane.cluster.x-k8s.io
+  resources:
+    - awsmanagedcontrolplanes
+    - awsmanagedcontrolplanes/status
+  verbs:
+    - get
+    - list
+    - patch
+    - watch
 - apiGroups:
     - ""
   resources:
