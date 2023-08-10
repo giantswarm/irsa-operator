@@ -15,7 +15,7 @@ type CloudfrontDistributionNotDisabledError struct {
 }
 
 func (e *CloudfrontDistributionNotDisabledError) Error() string {
-	return "dns record type is not supported"
+	return "CloudFront distribution is not disabled yet"
 }
 
 func (e *CloudfrontDistributionNotDisabledError) Is(target error) bool {
