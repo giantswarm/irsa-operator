@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update Go dependencies to fix vulnerability in `golang.org/x/net v0.9.0`
+
 ## [0.19.0] - 2023-08-03
 
 ### Added
@@ -32,13 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.17.0] - 2023-07-17
 
-### Changed 
+### Changed
 
 - Force SSL access to bucket contents to improve security.
 
 ## [0.16.0] - 2023-07-13
 
-### Added 
+### Added
 
 - Added required values for pss policies.
 
