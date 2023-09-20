@@ -423,9 +423,5 @@ func (s *Service) ServiceAccountSecret(ctx context.Context) (*rsa.PrivateKey, er
 }
 
 func (s *Service) getCloudFrontAliasDomain() string {
-	if s.Scope.VPCMode() != "private" {
-		return key.CloudFrontAlias(s.Scope.BaseDomain())
-	}
-
-	return ""
+	return key.CloudFrontAlias(s.Scope.BaseDomain())
 }
