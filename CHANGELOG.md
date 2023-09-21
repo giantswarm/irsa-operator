@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update Go dependencies to fix vulnerability in `golang.org/x/net v0.9.0`
+- Use `irsa.<baseDomain>` alias for all CAPA clusters including proxy based clusters.
 
 ## [0.19.0] - 2023-08-03
 
