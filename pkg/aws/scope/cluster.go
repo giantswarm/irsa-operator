@@ -31,7 +31,7 @@ type ClusterScopeParams struct {
 	Region             string
 	ReleaseVersion     string
 	SecretName         string
-	VPCMode            string
+	DNSMode            string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -111,7 +111,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		releaseVersion:     params.ReleaseVersion,
 		releaseSemver:      releaseSemver,
 		secretName:         params.SecretName,
-		vpcMode:            params.VPCMode,
+		dnsMode:            params.DNSMode,
 
 		Logr:    params.Logger,
 		session: session,
@@ -135,7 +135,7 @@ type ClusterScope struct {
 	releaseVersion     string
 	releaseSemver      semver.Version
 	secretName         string
-	vpcMode            string
+	dnsMode            string
 
 	Logr    logr.Logger
 	session awsclient.ConfigProvider
@@ -230,6 +230,6 @@ func (s *ClusterScope) Session() awsclient.ConfigProvider {
 }
 
 // VPCMode returns the VPC mode used on this cluster.
-func (s *ClusterScope) VPCMode() string {
-	return s.vpcMode
+func (s *ClusterScope) DNSMode() string {
+	return s.dnsMode
 }

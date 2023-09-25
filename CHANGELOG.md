@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Add support for private clusters with public dns. 
 - Update Go dependencies to fix vulnerability in `golang.org/x/net v0.9.0`
 
 ## [0.19.0] - 2023-08-03
