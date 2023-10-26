@@ -11,7 +11,6 @@ var invalidOriginAccessIdentity = &microerror.Error{
 }
 
 type DistributionNotDisabledError struct {
-	error
 }
 
 func (e *DistributionNotDisabledError) Error() string {

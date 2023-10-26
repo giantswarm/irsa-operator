@@ -209,7 +209,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			}
 		}
 
-		data["domainAlias"] = *aliases[0]
+		data["domainAlias"] = *aliases[0] //nolint:gosec
 	}
 
 	cfConfig := &v1.Secret{}
@@ -289,7 +289,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	uploadFiles := func() error {
 		domain := cfDomain
 		if len(aliases) > 0 {
-			domain = *aliases[0]
+			domain = *aliases[0] //nolint:gosec
 		}
 		return s.S3.UploadFiles(s.Scope.Release(), domain, s.Scope.BucketName(), privateKey)
 	}

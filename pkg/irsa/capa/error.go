@@ -11,7 +11,6 @@ var certificateNotIssuedError = &microerror.Error{
 }
 
 type CloudfrontDistributionNotDisabledError struct {
-	error
 }
 
 func (e *CloudfrontDistributionNotDisabledError) Error() string {
