@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/aws/aws-sdk-go v1.46.6
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/giantswarm/apiextensions/v6 v6.0.0
+	github.com/giantswarm/apiextensions/v6 v6.6.0
 	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.0
 	github.com/go-logr/logr v1.3.0
