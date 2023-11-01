@@ -37,10 +37,6 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 				Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
 			},
 			{
-				Key:   aws.String(key.S3TagCluster),
-				Value: aws.String(s.scope.ClusterName()),
-			},
-			{
 				Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
 				Value: aws.String("owned"),
 			},
@@ -50,6 +46,13 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 			},
 		},
 		ValidationMethod: aws.String(acm.ValidationMethodDns),
+	}
+	// add cluster tag if missing (this is case for vintage clusters)
+	if _, ok := customerTags[key.S3TagCluster]; !ok {
+		if customerTags == nil {
+			customerTags = make(map[string]string)
+		}
+		customerTags[key.S3TagCluster] = s.scope.ClusterName()
 	}
 
 	for k, v := range customerTags {

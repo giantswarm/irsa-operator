@@ -61,7 +61,7 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 			},
 		},
 	}
-	// if cluster tag is missing add it
+	// add cluster tag if missing (this is case for vintage clusters)
 	if _, ok := customerTags[key.S3TagCluster]; !ok {
 		if customerTags == nil {
 			customerTags = make(map[string]string)

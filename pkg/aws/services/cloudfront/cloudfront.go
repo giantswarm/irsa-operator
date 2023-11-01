@@ -127,6 +127,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 
 	// Add internal and customer tags.
 	{
+		customerTags := config.CustomerTags
 		for k, v := range s.internalTags() {
 			tag := &cloudfront.Tag{
 				Key:   aws.String(k),
@@ -135,7 +136,15 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 			i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 		}
 
-		for k, v := range config.CustomerTags {
+		// add cluster tag if missing (this is case for vintage clusters)
+		if _, ok := customerTags[key.S3TagCluster]; !ok {
+			if customerTags == nil {
+				customerTags = make(map[string]string)
+			}
+			customerTags[key.S3TagCluster] = s.scope.ClusterName()
+		}
+
+		for k, v := range customerTags {
 			tag := &cloudfront.Tag{
 				Key:   aws.String(k),
 				Value: aws.String(v),
@@ -268,7 +277,6 @@ func (s *Service) findDistribution() (*Distribution, error) {
 func (s *Service) internalTags() map[string]string {
 	return map[string]string{
 		key.S3TagOrganization: util.RemoveOrg(s.scope.ClusterNamespace()),
-		key.S3TagCluster:      s.scope.ClusterName(),
 		fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName()): "owned",
 		key.S3TagInstallation: s.scope.Installation(),
 	}
