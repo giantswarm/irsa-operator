@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `global.podSecurityStandards.enforced` value for PSS migration.
+- Add AWS tags to all created resources for CAPA and EKS clusters.
 
 ## [0.20.0] - 2023-09-21
 

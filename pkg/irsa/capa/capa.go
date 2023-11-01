@@ -16,7 +16,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
@@ -95,17 +95,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// Fetch custom tags from Cluster CR
-	cluster := &capi.Cluster{}
-	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
-	if apierrors.IsNotFound(err) {
-		// fallthrough
-	} else if err != nil {
+	// Fetch custom tags from AWSCluster CR
+	awsCluster := &capa.AWSCluster{}
+	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, awsCluster)
+	if err != nil {
 		return err
 	}
-	customerTags := key.GetCustomerTags(cluster)
-
-	err = s.S3.CreateTags(s.Scope.BucketName(), customerTags)
+	err = s.S3.CreateTags(s.Scope.BucketName(), awsCluster.Spec.AdditionalTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to create tags")
@@ -122,7 +118,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		cloudfrontAliasDomain := s.getCloudFrontAliasDomain()
 		if cloudfrontAliasDomain != "" {
 			// Ensure ACM certificate.
-			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, customerTags)
+			certificateArn, err := s.ACM.EnsureCertificate(cloudfrontAliasDomain, awsCluster.Spec.AdditionalTags)
 			if err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 				s.Scope.Logger().Error(err, "failed to create ACM certificate")
@@ -180,7 +176,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			cloudfrontCertificateARN = *certificateArn
 		}
 
-		distribution, err = s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: customerTags, Aliases: aliases, CertificateArn: cloudfrontCertificateARN})
+		distribution, err = s.Cloudfront.EnsureDistribution(cloudfront.DistributionConfig{CustomerTags: awsCluster.Spec.AdditionalTags, Aliases: aliases, CertificateArn: cloudfrontCertificateARN})
 		if err != nil {
 			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 			s.Scope.Logger().Error(err, "failed to create cloudfront distribution")
@@ -313,7 +309,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
 		}
 
-		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
+		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {

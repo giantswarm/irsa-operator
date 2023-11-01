@@ -5,7 +5,7 @@ import (
 
 	"github.com/giantswarm/microerror"
 	"k8s.io/apimachinery/pkg/types"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	controlplanecapa "sigs.k8s.io/cluster-api-provider-aws/v2/controlplane/eks/api/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
@@ -42,14 +42,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	identityProviderURLs := []string{oidcURL}
 
 	// Fetch custom tags from Cluster CR
-	cluster := &capi.Cluster{}
+	cluster := &controlplanecapa.AWSManagedControlPlane{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
 	if err != nil {
 		return microerror.Mask(err)
 	}
-	customerTags := key.GetCustomerTags(cluster)
 
-	err = s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), customerTags)
+	err = s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), cluster.Spec.AdditionalTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to create OIDC provider")
