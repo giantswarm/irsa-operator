@@ -63,6 +63,9 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 	}
 	// if cluster tag is missing add it
 	if _, ok := customerTags[key.S3TagCluster]; !ok {
+		if customerTags == nil {
+			customerTags = make(map[string]string)
+		}
 		customerTags[key.S3TagCluster] = s.scope.ClusterName()
 	}
 
