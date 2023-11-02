@@ -139,7 +139,6 @@ func (s *Service) IsBucketReady(bucketName string) error {
 }
 
 func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
-
 	var cloudfrontPolicy = `{
 	"Version": "2012-10-17",
 	"Id": "PolicyForCloudFrontPrivateContent",
@@ -166,6 +165,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 		}
 	]
 }`
+
 	t, err := template.New("").Parse(cloudfrontPolicy)
 	if err != nil {
 		return err
