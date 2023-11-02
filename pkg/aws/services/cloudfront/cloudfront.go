@@ -127,7 +127,11 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 
 	// Add internal and customer tags.
 	{
-		customerTags := config.CustomerTags
+		// deep copy the map from config.CustomerTags
+		var customerTags map[string]string
+		for k, v := range config.CustomerTags {
+			customerTags[k] = v
+		}
 		for k, v := range s.internalTags() {
 			tag := &cloudfront.Tag{
 				Key:   aws.String(k),
