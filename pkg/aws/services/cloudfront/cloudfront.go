@@ -128,7 +128,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	// Add internal and customer tags.
 	{
 		// deep copy the map from config.CustomerTags
-		var customerTags map[string]string
+		customerTags := make(map[string]string)
 		for k, v := range config.CustomerTags {
 			customerTags[k] = v
 		}
