@@ -41,7 +41,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	}
 	identityProviderURLs := []string{oidcURL}
 
-	// Fetch custom tags from Cluster CR
+	// Fetch custom tags from AWSManagedControlPlane CR
 	cluster := &controlplanecapa.AWSManagedControlPlane{}
 	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
 	if err != nil {
