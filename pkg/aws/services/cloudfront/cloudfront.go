@@ -142,9 +142,6 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 
 		// add cluster tag if missing (this is case for vintage clusters)
 		if _, ok := customerTags[key.S3TagCluster]; !ok {
-			if customerTags == nil {
-				customerTags = make(map[string]string)
-			}
 			customerTags[key.S3TagCluster] = s.scope.ClusterName()
 		}
 
