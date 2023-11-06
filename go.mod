@@ -3,7 +3,7 @@ module github.com/giantswarm/irsa-operator
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.47.1
+	github.com/aws/aws-sdk-go v1.47.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/giantswarm/apiextensions/v6 v6.6.0
 	github.com/giantswarm/backoff v1.0.0
@@ -13,7 +13,7 @@ require (
 	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
-	golang.org/x/text v0.13.0
+	golang.org/x/text v0.14.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.25.0
 	k8s.io/apimachinery v0.25.0
