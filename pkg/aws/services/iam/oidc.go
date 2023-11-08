@@ -182,7 +182,6 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 func (s *Service) internalTags() map[string]string {
 	return map[string]string{
 		key.S3TagOrganization: util.RemoveOrg(s.scope.ClusterNamespace()),
-		key.S3TagCluster:      s.scope.ClusterName(),
 		fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName()): "owned",
 		key.S3TagInstallation: s.scope.Installation(),
 	}

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed `giantswarm.io/cluster` tag from OIDC provider.
+
 ## [0.21.0] - 2023-11-07
 
 ### Added
