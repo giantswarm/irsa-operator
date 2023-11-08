@@ -81,6 +81,8 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 			})
 		}
 
+		desiredTags = removeDuplicates(desiredTags)
+
 		// Check if one of the providers is already using the right URL.
 		found := false
 		for arn, existing := range providers {
@@ -336,4 +338,17 @@ func caThumbPrints(ep string) ([]string, error) {
 	}
 
 	return ret, nil
+}
+
+func removeDuplicates(tags []*iam.Tag) []*iam.Tag {
+	keys := make(map[string]bool)
+	list := []*iam.Tag{}
+
+	for _, entry := range tags {
+		if _, value := keys[*entry.Key]; !value {
+			keys[*entry.Key] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
