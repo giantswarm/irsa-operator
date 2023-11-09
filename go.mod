@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/giantswarm/apiextensions/v6 v6.6.0
 	github.com/giantswarm/backoff v1.0.0
-	github.com/giantswarm/microerror v0.4.0
+	github.com/giantswarm/microerror v0.4.1
 	github.com/go-logr/logr v1.3.0
 	github.com/nhalstead/sprint v1.0.6
 	github.com/peak/s3hash v0.1.1
@@ -56,7 +56,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
