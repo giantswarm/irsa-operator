@@ -13,7 +13,7 @@ image:
   name: "giantswarm/irsa-operator"
   tag: ""
 registry:
-  domain: docker.io
+  domain: gsoci.azurecr.io
 
 pod:
   user:
@@ -43,7 +43,7 @@ securityContext:
     type: RuntimeDefault
   capabilities:
     drop:
-    - ALL
+      - ALL
 
 global:
   podSecurityStandards:
