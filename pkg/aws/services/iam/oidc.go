@@ -32,6 +32,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 
 	thumbprints := make([]*string, 0)
 	for _, identityProviderURL := range identityProviderURLs {
+		s.scope.Logger().Info("Getting thumbprints for URL", "url", identityProviderURL)
 		tps, err := caThumbPrints(identityProviderURL)
 		if err != nil {
 			return err
