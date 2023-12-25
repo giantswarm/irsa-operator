@@ -196,7 +196,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	if len(aliases) > 0 && hostedZoneID != "" {
 		for _, alias := range aliases {
-			s.Scope.Logger().Info("Creating ACM Alias CNAME", "alias", *alias)
 			// Create IRSA Alias CNAME
 			err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
 			if err != nil {
