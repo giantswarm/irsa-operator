@@ -299,7 +299,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	createOIDCProvider := func() error {
 		var identityProviderURLs []string
 		s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.Region(), key.AWSEndpoint(s.Scope.Region()))
-		if !(key.IsV18Release(s.Scope.Release()) && !key.IsChina(s.Scope.Region())) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
+		if key.IsChina(s.Scope.Region()) || (s.Scope.MigrationNeeded() && !key.IsChina(s.Scope.Region())) {
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, s.Scope.BucketName())))
 		}
 
