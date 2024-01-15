@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2024-01-15
+
 ### Changed
 
 - Configure `gsoci.azurecr.io` as the default container image registry.
@@ -318,7 +320,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/giantswarm/irsa-operator/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/giantswarm/irsa-operator/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/giantswarm/irsa-operator/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/giantswarm/irsa-operator/compare/v0.19.0...v0.20.0
