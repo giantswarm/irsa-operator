@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -41,6 +42,8 @@ import (
 	irsaCapa "github.com/giantswarm/irsa-operator/pkg/irsa/capa"
 	"github.com/giantswarm/irsa-operator/pkg/key"
 )
+
+const maxPatchRetries = 5
 
 // CAPAClusterReconciler reconciles a CAPA AWSCluster object
 type CAPAClusterReconciler struct {
@@ -154,18 +157,10 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		logger.Info("successfully removed finalizer from cluster values ConfigMap")
 
-		patchHelper, err := patch.NewHelper(cluster, r.Client)
+		err = r.removeAWSClusterFinalizer(ctx, logger, cluster)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = patchHelper.Patch(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "failed to remove finalizer from AWSCluster")
-			return ctrl.Result{}, microerror.Mask(err)
-		}
-		logger.Info("successfully removed finalizer from AWSCluster")
 
 		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 
@@ -215,6 +210,36 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
 		return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
 	}
+}
+
+func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, logger logr.Logger, cluster *capa.AWSCluster) error {
+	for i := 0; i < maxPatchRetries; i++ {
+		patchHelper, err := patch.NewHelper(cluster, r.Client)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
+		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
+		err = patchHelper.Patch(ctx, cluster)
+
+		// If another controller has removed it's finalizer while we're
+		// reconciling this will fail with "Forbidden: no new finalizers can be
+		// added if the object is being deleted". We have to get the cluster
+		// again with the now removed finalizer(s) and try again.
+		if k8serrors.IsForbidden(err) {
+			logger.Info("patching AWSCluster failed, trying again: %s", err.Error())
+			if err := r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
+				return microerror.Mask(err)
+			}
+			continue
+		}
+		if err != nil {
+			logger.Error(err, "failed to remove finalizers from AWSCluster")
+			return microerror.Mask(err)
+		}
+	}
+	logger.Info("successfully removed finalizer from AWSCluster")
+	return nil
 }
 
 func getBaseDomain(clusterValuesConfigMap *v1.ConfigMap) (string, error) {
