@@ -214,13 +214,10 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, logger logr.Logger, cluster *capa.AWSCluster) error {
 	for i := 1; i <= maxPatchRetries; i++ {
-		patchHelper, err := patch.NewHelper(cluster, r.Client)
-		if err != nil {
-			return microerror.Mask(err)
-		}
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = patchHelper.Patch(ctx, cluster)
+		patchedCluster := cluster.DeepCopy()
+		controllerutil.RemoveFinalizer(patchedCluster, key.FinalizerNameDeprecated)
+		controllerutil.RemoveFinalizer(patchedCluster, key.FinalizerName)
+		err := r.Patch(ctx, patchedCluster, client.MergeFrom(cluster))
 
 		// If another controller has removed its finalizer while we're
 		// reconciling this will fail with "Forbidden: no new finalizers can be
