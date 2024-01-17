@@ -224,9 +224,11 @@ func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, l
 
 		// If another controller has removed its finalizer while we're
 		// reconciling this will fail with "Forbidden: no new finalizers can be
-		// added if the object is being deleted". We have to get the cluster
-		// again with the now removed finalizer(s) and try again.
-		if k8serrors.IsForbidden(err) && i < maxPatchRetries {
+		// added if the object is being deleted". The actual response code is
+		// 422 Unprocessable entity, which maps to StatusReasonInvalid in the
+		// k8serrors package. We have to get the cluster again with the now
+		// removed finalizer(s) and try again.
+		if k8serrors.IsInvalid(err) && i < maxPatchRetries {
 			logger.Info("patching AWSCluster failed, trying again: %s", err.Error())
 			if err := r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
 				return microerror.Mask(err)
