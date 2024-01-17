@@ -213,7 +213,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, logger logr.Logger, cluster *capa.AWSCluster) error {
-	for i := 0; i < maxPatchRetries; i++ {
+	for i := 1; i <= maxPatchRetries; i++ {
 		patchHelper, err := patch.NewHelper(cluster, r.Client)
 		if err != nil {
 			return microerror.Mask(err)
@@ -226,7 +226,7 @@ func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, l
 		// reconciling this will fail with "Forbidden: no new finalizers can be
 		// added if the object is being deleted". We have to get the cluster
 		// again with the now removed finalizer(s) and try again.
-		if k8serrors.IsForbidden(err) {
+		if k8serrors.IsForbidden(err) && i < maxPatchRetries {
 			logger.Info("patching AWSCluster failed, trying again: %s", err.Error())
 			if err := r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
 				return microerror.Mask(err)
