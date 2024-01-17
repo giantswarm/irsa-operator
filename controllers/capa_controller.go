@@ -222,7 +222,7 @@ func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, l
 		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
 		err = patchHelper.Patch(ctx, cluster)
 
-		// If another controller has removed it's finalizer while we're
+		// If another controller has removed its finalizer while we're
 		// reconciling this will fail with "Forbidden: no new finalizers can be
 		// added if the object is being deleted". We have to get the cluster
 		// again with the now removed finalizer(s) and try again.
