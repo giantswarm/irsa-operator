@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Retry patching AWSCluster when removing finalizer if it fails the first time
+
 ## [0.23.0] - 2024-01-15
 
 ### Changed
