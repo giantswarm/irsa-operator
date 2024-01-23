@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Fetch service account secret much later in the process instead of waiting. That way other resources can be created in the meantime.
+
 ## [0.23.1] - 2024-01-17
 
 ### Changed
