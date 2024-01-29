@@ -54,22 +54,14 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		S3:         s3.NewService(scope),
 	}
 }
-func (s *Service) Reconcile(ctx context.Context) error {
+func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration) error {
 	var cfDomain string
 	var cfOaiId string
 
 	s.Scope.Logger().Info("Reconciling AWSCluster CR for IRSA")
-	privateKey, err := s.ServiceAccountSecret(ctx)
-	if apierrors.IsNotFound(err) {
-		s.Scope.Logger().Info("Service account is not ready yet, waiting ...")
-		return nil
-	} else if err != nil {
-		return err
-	}
 
 	b := backoff.NewMaxRetries(3, 5*time.Second)
-
-	err = s.S3.IsBucketReady(s.Scope.BucketName())
+	err := s.S3.IsBucketReady(s.Scope.BucketName())
 	// Check if S3 bucket exists
 	if err != nil {
 		createBucket := func() error {
@@ -280,6 +272,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			s.Scope.Logger().Error(err, "failed to allow public access")
 			return err
 		}
+	}
+
+	privateKey, err := s.ServiceAccountSecret(ctx)
+	if apierrors.IsNotFound(err) {
+		s.Scope.Logger().Info("Service account is not ready yet, waiting ...")
+
+		// Secret is handled by CAPI/kubeadm and may be available soon, so set a low requeue interval
+		*outRequeueAfter = 30 * time.Second
+		return nil
+	}
+	if err != nil {
+		return err
 	}
 
 	uploadFiles := func() error {

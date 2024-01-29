@@ -198,7 +198,10 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Info("successfully added finalizer to AWSCluster")
 		}
 
-		err := irsaService.Reconcile(ctx)
+		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
+		requeueAfter := time.Minute * 5
+
+		err := irsaService.Reconcile(ctx, &requeueAfter)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
@@ -207,8 +210,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
-		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)
-		return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 }
 
