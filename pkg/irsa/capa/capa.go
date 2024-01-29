@@ -54,6 +54,7 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		S3:         s3.NewService(scope),
 	}
 }
+
 func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration) error {
 	var cfDomain string
 	var cfOaiId string

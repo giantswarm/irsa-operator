@@ -16,8 +16,10 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
+	gocache "github.com/patrickmn/go-cache"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -84,12 +86,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	cache := gocache.New(
+		// The cache is shared and can be used for various things.
+		// A reasonable expiration duration should be specified at usage, not here.
+		1*time.Second,
+
+		15*time.Second)
+
 	if legacy {
 		if err = (&controllers.LegacyClusterReconciler{
 			Client:       mgr.GetClient(),
 			Log:          ctrl.Log.WithName("legacy-controller"),
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
+			Cache:        cache,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			os.Exit(1)
@@ -102,6 +112,7 @@ func main() {
 			Log:          ctrl.Log.WithName("capa-controller"),
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
+			Cache:        cache,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			os.Exit(1)
@@ -111,6 +122,7 @@ func main() {
 			Log:          ctrl.Log.WithName("eks-controller"),
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
+			Cache:        cache,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AWSManagedControlPlane")
 			os.Exit(1)

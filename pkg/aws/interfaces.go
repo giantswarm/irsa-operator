@@ -3,6 +3,7 @@ package aws
 import (
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
+	gocache "github.com/patrickmn/go-cache"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -22,6 +23,9 @@ type ClusterScoper interface {
 	ARN() string
 	// BucketName returns the AWS infrastructure cluster object bucket name.
 	BucketName() string
+	// Cache returns the reconciler cache which can be used for instance to cache values across AWS SDK clients
+	// and sessions.
+	Cache() *gocache.Cache
 	// Cluster returns the AWS infrastructure cluster.
 	Cluster() runtime.Object
 	// Cluster returns the AWS infrastructure cluster name.

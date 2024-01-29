@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/blang/semver"
 	"github.com/go-logr/logr"
+	gocache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -21,6 +22,7 @@ type ClusterScopeParams struct {
 	ARN                string
 	BaseDomain         string
 	BucketName         string
+	Cache              *gocache.Cache
 	Cluster            runtime.Object
 	ClusterName        string
 	ClusterNamespace   string
@@ -48,6 +50,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 	if params.BucketName == "" {
 		return nil, errors.New("failed to generate new scope from emtpy string BucketName")
+	}
+	if params.Cache == nil {
+		return nil, errors.New("failed to generate new scope from nil Cache")
 	}
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
@@ -100,6 +105,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		assumeRole:         params.ARN,
 		baseDomain:         params.BaseDomain,
 		bucketName:         params.BucketName,
+		cache:              params.Cache,
 		cluster:            params.Cluster,
 		clusterName:        params.ClusterName,
 		clusterNamespace:   params.ClusterNamespace,
@@ -124,6 +130,7 @@ type ClusterScope struct {
 	baseDomain         string
 	bucketName         string
 	assumeRole         string
+	cache              *gocache.Cache
 	cluster            runtime.Object
 	clusterName        string
 	clusterNamespace   string
@@ -167,6 +174,10 @@ func (s *ClusterScope) BucketName() string {
 	} else {
 		return s.bucketName
 	}
+}
+
+func (s *ClusterScope) Cache() *gocache.Cache {
+	return s.cache
 }
 
 // Cluster returns the AWS infrastructure cluster object.
