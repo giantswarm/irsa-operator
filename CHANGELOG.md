@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.2] - 2024-01-29
+
 ### Changed
 
 - Fetch service account secret much later in the process instead of waiting. That way, other resources can be created in the meantime. Also, requeue a reconciliation sooner as the secret may be available before the previous default of "5 minutes later".
@@ -330,7 +332,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.23.2...HEAD
+[0.23.2]: https://github.com/giantswarm/irsa-operator/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/giantswarm/irsa-operator/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/giantswarm/irsa-operator/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/giantswarm/irsa-operator/compare/v0.21.0...v0.22.0
