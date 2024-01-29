@@ -54,7 +54,7 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		S3:         s3.NewService(scope),
 	}
 }
-func (s *Service) Reconcile(ctx context.Context) error {
+func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration) error {
 	var cfDomain string
 	var cfOaiId string
 
@@ -277,8 +277,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	privateKey, err := s.ServiceAccountSecret(ctx)
 	if apierrors.IsNotFound(err) {
 		s.Scope.Logger().Info("Service account is not ready yet, waiting ...")
+
+		// Secret is handled by CAPI/kubeadm and may be available soon, so set a low requeue interval
+		*outRequeueAfter = 30 * time.Second
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 
