@@ -2,6 +2,7 @@ name: irsa-operator
 version: 0.23.2
 description: "Operator for managing IAM roles for service accounts"
 home: "https://github.com/giantswarm/irsa-operator"
+icon: https://s.giantswarm.io/app-icons/aws/2/dark.svg
 apiVersion: v1
 annotations:
   application.giantswarm.io/team: "phoenix"
