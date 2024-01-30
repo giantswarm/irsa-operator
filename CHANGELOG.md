@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2024-01-30
+
 ### Changed
 
 - List many hosted zones at once in one Route53 request and cache all returned zones. This reduces the number of Route53 requests and therefore avoids rate limit (throttling) errors.
@@ -337,7 +339,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.23.2...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/giantswarm/irsa-operator/compare/v0.23.2...v0.24.0
 [0.23.2]: https://github.com/giantswarm/irsa-operator/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/giantswarm/irsa-operator/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/giantswarm/irsa-operator/compare/v0.22.0...v0.23.0
