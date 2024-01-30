@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.1] - 2024-01-30
+
 ### Changed
 
 - Avoid unnecessary `ChangeResourceRecordSets` upsert requests if the same update was recently done. This further avoids hitting the AWS Route53 rate limit.
@@ -343,7 +345,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/giantswarm/irsa-operator/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/giantswarm/irsa-operator/compare/v0.23.2...v0.24.0
 [0.23.2]: https://github.com/giantswarm/irsa-operator/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/giantswarm/irsa-operator/compare/v0.23.0...v0.23.1
