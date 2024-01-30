@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/giantswarm/irsa-operator/controllers"
+	"github.com/giantswarm/irsa-operator/pkg/aws/scope"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -140,7 +141,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager", "currentCommit", scope.CurrentCommit)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

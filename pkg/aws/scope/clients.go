@@ -1,6 +1,8 @@
 package scope
 
 import (
+	"runtime/debug"
+
 	awsclient "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -12,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/component-base/version"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	"github.com/giantswarm/irsa-operator/pkg/aws"
@@ -84,10 +85,25 @@ func NewIAMClient(session aws.Session, arn string, target runtime.Object) *iam.I
 
 	return IAMClient
 }
+
+var (
+	CurrentCommit = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" {
+					return setting.Value
+				}
+			}
+		}
+
+		return ""
+	}()
+)
+
 func getUserAgentHandler() request.NamedHandler {
 	return request.NamedHandler{
 		Name: "irsa-operator/user-agent",
-		Fn:   request.MakeAddToUserAgentHandler("awscluster", version.Get().String()),
+		Fn:   request.MakeAddToUserAgentHandler("irsa-operator", CurrentCommit),
 	}
 }
 
