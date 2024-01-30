@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/record"
 	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,6 +76,11 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	cluster := &capa.AWSCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
+	}
+
+	if annotations.HasPaused(cluster) {
+		logger.Info("AWSCluster is marked as paused, skipping")
+		return ctrl.Result{}, nil
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
