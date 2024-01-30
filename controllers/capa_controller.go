@@ -24,6 +24,7 @@ import (
 
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
+	gocache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,6 +54,7 @@ type CAPAClusterReconciler struct {
 
 	Installation string
 	recorder     record.EventRecorder
+	Cache        *gocache.Cache
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
@@ -110,6 +112,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ARN:              arn,
 		BaseDomain:       baseDomain,
 		BucketName:       key.BucketName(accountID, cluster.Name),
+		Cache:            r.Cache,
 		ClusterName:      cluster.Name,
 		ClusterNamespace: cluster.Namespace,
 		ConfigName:       key.ConfigName(cluster.Name),

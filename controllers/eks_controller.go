@@ -24,6 +24,7 @@ import (
 
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
+	gocache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,6 +51,7 @@ type EKSClusterReconciler struct {
 
 	Installation string
 	recorder     record.EventRecorder
+	Cache        *gocache.Cache
 }
 
 func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -85,6 +87,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		AccountID:        accountID,
 		ARN:              arn,
 		BucketName:       key.BucketName(accountID, eksCluster.Name),
+		Cache:            r.Cache,
 		ClusterName:      eksCluster.Name,
 		ClusterNamespace: eksCluster.Namespace,
 		ConfigName:       key.ConfigName(eksCluster.Name),

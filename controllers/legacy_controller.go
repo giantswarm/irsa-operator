@@ -26,6 +26,7 @@ import (
 	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/microerror"
 	"github.com/go-logr/logr"
+	gocache "github.com/patrickmn/go-cache"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,6 +51,7 @@ type LegacyClusterReconciler struct {
 
 	Installation string
 	recorder     record.EventRecorder
+	Cache        *gocache.Cache
 }
 
 // +kubebuilder:rbac:groups=infrastructure.giantswarm.io,resources=awscluster,verbs=get;list;watch;create;update;patch;delete
@@ -142,6 +144,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		AccountID:          accountID,
 		ARN:                arn,
 		BucketName:         key.BucketName(accountID, cluster.Name),
+		Cache:              r.Cache,
 		ClusterName:        cluster.Name,
 		ClusterNamespace:   cluster.Namespace,
 		ConfigName:         key.ConfigName(cluster.Name),

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- List many hosted zones at once in one Route53 request and cache all returned zones. This reduces the number of Route53 requests and therefore avoids rate limit (throttling) errors.
+
 ## [0.23.2] - 2024-01-29
 
 ### Changed
