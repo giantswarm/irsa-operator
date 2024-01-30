@@ -51,7 +51,13 @@ func (s *Service) findHostedZone(zoneName string, public bool) (string, error) {
 	}
 
 	for _, zone := range listResponse.HostedZones {
-		s.scope.Cache().Set(makeCacheKey(strings.TrimSuffix(*zone.Name, "."), !*zone.Config.PrivateZone), *zone.Id, 3*time.Minute)
+		s.scope.Cache().Set(
+			makeCacheKey(strings.TrimSuffix(*zone.Name, "."), !*zone.Config.PrivateZone),
+			*zone.Id,
+			// We requeue every few minutes to update OIDC certificate thumbprints (see controller code), and there's no
+			// reason to think that a DNS zone ID was changed/deleted for the purposes of irsa-operator. So cache results
+			// long enough to last 2 reconciliations (= cache longer than controller's requeue interval).
+			7*time.Minute)
 	}
 
 	// We return the first zone found that matches the basename and is public or not according to the parameter.
