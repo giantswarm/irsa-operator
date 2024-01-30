@@ -27,12 +27,12 @@ func (s *Service) findHostedZone(zoneName string, public bool) (string, error) {
 	s.scope.Logger().Info("Searching route53 hosted zone ID", "zoneName", zoneName)
 
 	makeCacheKey := func(zoneName string, public bool) string {
-		return fmt.Sprintf("route53/region=%q/arn=%q/zoneName=%q/public=%v/id", s.scope.Region(), s.scope.ARN(), zoneName, public)
+		return fmt.Sprintf("route53/arn=%q/zoneName=%q/public=%v/id", s.scope.ARN(), zoneName, public)
 	}
 
 	if cachedValue, ok := s.scope.Cache().Get(makeCacheKey(zoneName, public)); ok {
 		zoneId := cachedValue.(string)
-		s.scope.Logger().Info("Using Route53 hosted zone ID from cache", "region", s.scope.Region(), "arn", s.scope.ARN(), "zoneId", zoneId, "zoneName", zoneName)
+		s.scope.Logger().Info("Using Route53 hosted zone ID from cache", "arn", s.scope.ARN(), "zoneId", zoneId, "zoneName", zoneName)
 		return zoneId, nil
 	}
 
@@ -72,7 +72,22 @@ func (s *Service) findHostedZone(zoneName string, public bool) (string, error) {
 }
 
 func (s *Service) EnsureDNSRecord(hostedZoneID string, cname CNAME) error {
-	s.scope.Logger().Info(fmt.Sprintf("Ensuring CNAME record %q in zone %q", cname.Name, hostedZoneID))
+	logger := s.scope.Logger().WithValues("zoneId", hostedZoneID, "name", cname.Name, "value", cname.Value)
+
+	logger.Info("Ensuring CNAME record")
+
+	cacheKey := fmt.Sprintf("route53/arn=%q/zoneId=%q/cname-name=%q/cname-value", s.scope.ARN(), hostedZoneID, cname.Name)
+
+	if cachedValue, ok := s.scope.Cache().Get(cacheKey); ok {
+		cachedCNAMEValue := cachedValue.(string)
+
+		if cachedCNAMEValue == cname.Value {
+			// Avoid making excess Route53 requests that lead to rate limiting if we recently
+			// upserted this exact CNAME record
+			logger.Info("CNAME record was recently ensured, skipping upsert")
+			return nil
+		}
+	}
 
 	input := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{
@@ -100,7 +115,11 @@ func (s *Service) EnsureDNSRecord(hostedZoneID string, cname CNAME) error {
 		return microerror.Mask(err)
 	}
 
-	s.scope.Logger().Info(fmt.Sprintf("Ensured CNAME record %q in zone %q", cname.Name, hostedZoneID))
+	// No other operator touches the `irsa.<basedomain>` DNS record, so we can remember for a long period
+	// that the DNS record was already upserted.
+	s.scope.Cache().Set(cacheKey, cname.Value, 10*time.Minute)
+
+	logger.Info("Ensured CNAME record")
 
 	return nil
 }

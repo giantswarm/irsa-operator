@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Avoid unnecessary `ChangeResourceRecordSets` upsert requests if the same update was recently done. This further avoids hitting the AWS Route53 rate limit.
+
 ## [0.24.0] - 2024-01-30
 
 ### Changed
