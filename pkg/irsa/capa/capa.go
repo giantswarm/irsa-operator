@@ -175,82 +175,81 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			s.Scope.Logger().Error(err, "failed to create cloudfront distribution")
 			return err
 		}
-	}
 
-	// kubeadmconfig only support secrets for now, therefore we need to store Cloudfront config as a secret, see
-	// https://github.com/giantswarm/cluster-api-app/blob/master/helm/cluster-api/files/bootstrap/patches/versions/v1beta1/kubeadmconfigs.bootstrap.cluster.x-k8s.io.yaml#L307-L325
+		// kubeadmconfig only support secrets for now, therefore we need to store Cloudfront config as a secret, see
+		// https://github.com/giantswarm/cluster-api-app/blob/master/helm/cluster-api/files/bootstrap/patches/versions/v1beta1/kubeadmconfigs.bootstrap.cluster.x-k8s.io.yaml#L307-L325
 
-	data := map[string]string{
-		"arn":                    distribution.ARN,
-		"domain":                 distribution.Domain,
-		"distributionId":         distribution.DistributionId,
-		"originAccessIdentityId": distribution.OriginAccessIdentityId,
-	}
+		data := map[string]string{
+			"arn":                    distribution.ARN,
+			"domain":                 distribution.Domain,
+			"distributionId":         distribution.DistributionId,
+			"originAccessIdentityId": distribution.OriginAccessIdentityId,
+		}
 
-	if len(aliases) > 0 && hostedZoneID != "" {
-		for _, alias := range aliases {
-			// Create IRSA Alias CNAME
-			err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
-			if err != nil {
+		if len(aliases) > 0 && hostedZoneID != "" {
+			for _, alias := range aliases {
+				// Create IRSA Alias CNAME
+				err = s.Route53.EnsureDNSRecord(hostedZoneID, route53.CNAME{Name: *alias, Value: key.EnsureTrailingDot(distribution.Domain)})
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger().Error(err, "failed to create cloudfront CNAME record")
+					return err
+				}
+			}
+
+			data["domainAlias"] = *aliases[0] //nolint:gosec
+		}
+
+		cfConfig := &v1.Secret{}
+		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
+		if apierrors.IsNotFound(err) {
+			if err := irsaerrors.IsEmptyCloudfrontDistribution(distribution); err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-				s.Scope.Logger().Error(err, "failed to create cloudfront CNAME record")
+				s.Scope.Logger().Error(err, "cloudfront distribution cannot be nil")
 				return err
 			}
-		}
 
-		data["domainAlias"] = *aliases[0] //nolint:gosec
-	}
+			// create new OIDC Cloudfront config
+			cfConfig := &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      s.Scope.ConfigName(),
+					Namespace: s.Scope.ClusterNamespace(),
+				},
+				StringData: data,
+			}
 
-	cfConfig := &v1.Secret{}
-	err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ConfigName()}, cfConfig)
-	if apierrors.IsNotFound(err) {
-		if err := irsaerrors.IsEmptyCloudfrontDistribution(distribution); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger().Error(err, "cloudfront distribution cannot be nil")
+			if err := s.Client.Create(ctx, cfConfig); err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger().Error(err, "failed to create OIDC cloudfront secret for cluster")
+				return err
+			}
+			s.Scope.Logger().Info("Created OIDC cloudfront secret in k8s")
+
+		} else if err != nil {
 			return err
 		}
 
-		// create new OIDC Cloudfront config
-		cfConfig := &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      s.Scope.ConfigName(),
-				Namespace: s.Scope.ClusterNamespace(),
-			},
-			StringData: data,
+		// Ensure CM is up to date
+		if reflect.DeepEqual(cfConfig.Data, data) {
+			s.Scope.Logger().Info("Secret is already up to date")
+		} else {
+			s.Scope.Logger().Info("Secret needs to be updated")
+
+			cfConfig.StringData = data
+
+			err = s.Client.Update(ctx, cfConfig)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger().Error(err, "error updating secret")
+				return err
+			}
+
+			s.Scope.Logger().Info("Secret updated successfully")
 		}
 
-		if err := s.Client.Create(ctx, cfConfig); err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger().Error(err, "failed to create OIDC cloudfront secret for cluster")
-			return err
-		}
-		s.Scope.Logger().Info("Created OIDC cloudfront secret in k8s")
-
-	} else if err != nil {
-		return err
+		cfDomain = data["domain"]
+		cfOaiId = data["originAccessIdentityId"]
 	}
-
-	// Ensure CM is up to date
-	if reflect.DeepEqual(cfConfig.Data, data) {
-		s.Scope.Logger().Info("Secret is already up to date")
-	} else {
-		s.Scope.Logger().Info("Secret needs to be updated")
-
-		cfConfig.StringData = data
-
-		err = s.Client.Update(ctx, cfConfig)
-		if err != nil {
-			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-			s.Scope.Logger().Error(err, "error updating secret")
-			return err
-		}
-
-		s.Scope.Logger().Info("Secret updated successfully")
-	}
-
-	cfDomain = data["domain"]
-	cfOaiId = data["originAccessIdentityId"]
-
 	// Update S3 policy to allow access only via Cloudfront for non-China region
 	if !key.IsChina(s.Scope.Region()) {
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
