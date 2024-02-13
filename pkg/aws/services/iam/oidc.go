@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
-	"github.com/nhalstead/sprint"
 	"github.com/pkg/errors"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
@@ -327,16 +326,6 @@ func caThumbPrints(ep string) ([]string, error) {
 			fmt.Fprintf(&buf, "%02X", f)
 		}
 		ret = append(ret, strings.ToLower(buf.String()))
-	}
-
-	// Leaf certificate (https://github.com/giantswarm/roadmap/issues/1937).
-	{
-		fp, err := sprint.GetFingerprint(ep, false)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-
-		ret = append(ret, strings.Replace(fp.SHA1, ":", "", -1))
 	}
 
 	return ret, nil
