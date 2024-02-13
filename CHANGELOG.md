@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix update of OIDC provider thumbprint list with both root CA and leaf certificate thumbprints. The root CA thumbprint was not being added because of the bug.
+- Fix update of OIDC provider thumbprint list with root CA.
 
 ## [0.24.1] - 2024-01-30
 
