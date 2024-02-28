@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/record"
 	capa "sigs.k8s.io/cluster-api-provider-aws/v2/api/v1beta2"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,20 +74,25 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	logger.Info("Reconciling AWSCluster")
 
-	cluster := &capa.AWSCluster{}
-	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+	awsCluster := &capa.AWSCluster{}
+	if err := r.Get(ctx, req.NamespacedName, awsCluster); err != nil {
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
-	if annotations.HasPaused(cluster) {
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
+	}
+
+	if annotations.HasPaused(awsCluster) {
 		logger.Info("AWSCluster is marked as paused, skipping")
 		return ctrl.Result{}, nil
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
-	err = r.Get(ctx, types.NamespacedName{Name: cluster.Spec.IdentityRef.Name}, awsClusterRoleIdentity)
+	err = r.Get(ctx, types.NamespacedName{Name: awsCluster.Spec.IdentityRef.Name}, awsClusterRoleIdentity)
 	if err != nil {
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("failed to get AWSClusterRoleIdentity object %q: %w", cluster.Spec.IdentityRef.Name, err))
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("failed to get AWSClusterRoleIdentity object %q: %w", awsCluster.Spec.IdentityRef.Name, err))
 	}
 
 	arn := awsClusterRoleIdentity.Spec.RoleArn
@@ -102,7 +108,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Fetch config map created by cluster-apps-operator
 	clusterValues := &v1.ConfigMap{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: fmt.Sprintf("%s-cluster-values", cluster.Name)}, clusterValues)
+	err = r.Get(ctx, types.NamespacedName{Namespace: awsCluster.Namespace, Name: fmt.Sprintf("%s-cluster-values", awsCluster.Name)}, clusterValues)
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
 	}
@@ -117,20 +123,20 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		AccountID:        accountID,
 		ARN:              arn,
 		BaseDomain:       baseDomain,
-		BucketName:       key.BucketName(accountID, cluster.Name),
+		BucketName:       key.BucketName(accountID, awsCluster.Name),
 		Cache:            r.Cache,
-		ClusterName:      cluster.Name,
-		ClusterNamespace: cluster.Namespace,
-		ConfigName:       key.ConfigName(cluster.Name),
+		ClusterName:      awsCluster.Name,
+		ClusterNamespace: awsCluster.Namespace,
+		ConfigName:       key.ConfigName(awsCluster.Name),
 		Installation:     r.Installation,
-		Region:           cluster.Spec.Region,
+		Region:           awsCluster.Spec.Region,
 		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
 		ReleaseVersion: "20.0.0-alpha1",
-		SecretName:     key.SecretName(cluster.Name),
-		VPCMode:        cluster.Annotations["aws.giantswarm.io/vpc-mode"],
+		SecretName:     key.SecretName(awsCluster.Name),
+		VPCMode:        awsCluster.Annotations["aws.giantswarm.io/vpc-mode"],
 
 		Logger:  logger,
-		Cluster: cluster,
+		Cluster: awsCluster,
 	})
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
@@ -139,8 +145,8 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Create IRSA service.
 	irsaService := irsaCapa.New(clusterScope, r.Client)
 
-	if cluster.DeletionTimestamp != nil {
-		finalizers := cluster.GetFinalizers()
+	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
+		finalizers := awsCluster.GetFinalizers()
 		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
 			return ctrl.Result{}, nil
 		}
@@ -166,12 +172,12 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		logger.Info("successfully removed finalizer from cluster values ConfigMap")
 
-		err = r.removeAWSClusterFinalizer(ctx, logger, cluster)
+		err = r.removeAWSClusterFinalizer(ctx, logger, awsCluster)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
+		r.sendEvent(awsCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 
 		return ctrl.Result{}, nil
 	} else {
@@ -191,15 +197,15 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Info("successfully added finalizer to cluster values ConfigMap")
 		}
 
-		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
+		if !controllerutil.ContainsFinalizer(awsCluster, key.FinalizerName) {
 			created = true
 
-			patchHelper, err := patch.NewHelper(cluster, r.Client)
+			patchHelper, err := patch.NewHelper(awsCluster, r.Client)
 			if err != nil {
 				return ctrl.Result{}, microerror.Mask(err)
 			}
-			controllerutil.AddFinalizer(cluster, key.FinalizerName)
-			err = patchHelper.Patch(ctx, cluster)
+			controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
+			err = patchHelper.Patch(ctx, awsCluster)
 			if err != nil {
 				logger.Error(err, "failed to add finalizer on AWSCluster")
 				return ctrl.Result{}, microerror.Mask(err)
@@ -216,7 +222,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 
 		if created {
-			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
+			r.sendEvent(awsCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
