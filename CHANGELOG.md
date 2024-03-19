@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - CAPA: check for deletion timestamp on the Cluster CR.
+- CAPA: always check if certificate should be validated
 
 ## [0.25.0] - 2024-02-13
 
