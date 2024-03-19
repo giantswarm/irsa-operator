@@ -102,7 +102,7 @@ func (s *Service) IsValidated(arn string) (bool, error) {
 	}
 
 	renewalValidationPending := false
-	if output.Certificate.RenewalSummary != nil {
+	if output.Certificate.RenewalSummary != nil && output.Certificate.RenewalSummary.RenewalStatus != nil {
 		renewalValidationPending = *output.Certificate.RenewalSummary.RenewalStatus == acm.RenewalStatusPendingValidation
 	}
 
