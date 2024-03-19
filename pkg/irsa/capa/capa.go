@@ -133,34 +133,34 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 				return err
 			}
 
-			if !issued {
-				s.Scope.Logger().Info("ACM certificate is not issued yet")
+			// Check if domain ownership is validated
+			validated, err := s.ACM.IsValidated(*certificateArn)
+			if err != nil {
+				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+				s.Scope.Logger().Error(err, "failed to check if ACM certificate's ownership is validated")
+				return err
+			}
 
-				// Check if domain ownership is validated
-				validated, err := s.ACM.IsValidated(*certificateArn)
+			if !validated {
+				// Check if DNS record is present
+				cname, err := s.ACM.GetValidationCNAME(*certificateArn)
 				if err != nil {
 					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-					s.Scope.Logger().Error(err, "failed to check if ACM certificate's ownership is validated")
+					s.Scope.Logger().Error(err, "failed to get ACM certificate's validation DNS record details")
 					return err
 				}
 
-				if !validated {
-					// Check if DNS record is present
-					cname, err := s.ACM.GetValidationCNAME(*certificateArn)
-					if err != nil {
-						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-						s.Scope.Logger().Error(err, "failed to get ACM certificate's validation DNS record details")
-						return err
-					}
-
-					err = s.Route53.EnsureDNSRecord(hostedZoneID, *cname)
-					if err != nil {
-						ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-						s.Scope.Logger().Error(err, "failed to create ACM certificate's validation DNS record")
-						return err
-					}
-
+				err = s.Route53.EnsureDNSRecord(hostedZoneID, *cname)
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger().Error(err, "failed to create ACM certificate's validation DNS record")
+					return err
 				}
+
+			}
+
+			if !issued {
+				s.Scope.Logger().Info("ACM certificate is not issued yet")
 
 				return microerror.Mask(certificateNotIssuedError)
 			}
