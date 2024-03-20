@@ -101,7 +101,13 @@ func (s *Service) IsValidated(arn string) (bool, error) {
 		return false, nil
 	}
 
-	return *output.Certificate.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess, nil
+	renewalValidationPending := false
+	if output.Certificate.RenewalSummary != nil && output.Certificate.RenewalSummary.RenewalStatus != nil {
+		renewalValidationPending = *output.Certificate.RenewalSummary.RenewalStatus == acm.RenewalStatusPendingValidation
+	}
+
+	validated := *output.Certificate.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess
+	return validated && !renewalValidationPending, nil
 }
 
 // GetValidationCNAME returns a CNAME record that needs to be created in order for automated domain ownership validation to work.
