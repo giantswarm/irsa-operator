@@ -38,6 +38,10 @@ spec:
         - "--installation={{ .Values.installation.name }}"
         - "--capa={{ .Values.capa }}"
         - "--legacy={{ .Values.legacy }}"
+        ports:
+        - name: metrics
+          protocol: TCP
+          containerPort: 8080
         securityContext:
           {{- with .Values.securityContext }}
             {{- . | toYaml | nindent 10 }}
