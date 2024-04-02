@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use PodMonitor instead of legacy labels.
+
 ## [0.26.1] - 2024-03-20
 
 ### Fixed
