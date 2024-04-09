@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Add switch for the PodMonitor
+
 ## [0.26.2] - 2024-04-02
 
 ### Fixed
