@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add metric `irsa_operator_acm_certificate_not_after` metric to expose the `NotAfter` timestamp of the ACM certificate.
+
 ## [0.26.3] - 2024-04-10
 
 ### Fixed
