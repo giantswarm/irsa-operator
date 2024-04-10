@@ -2,6 +2,7 @@ package acm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
@@ -78,58 +79,67 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 func (s *Service) IsCertificateIssued(arn string) (bool, error) {
 	s.scope.Logger().Info("Checking status of ACM certificate")
 
-	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
-		CertificateArn: aws.String(arn),
-	})
+	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return false, err
 	}
 
-	return *output.Certificate.Status == acm.CertificateStatusIssued, nil
+	return *cert.Status == acm.CertificateStatusIssued, nil
+}
+
+func (s *Service) GetCertificateExpirationTS(arn string) (*time.Time, error) {
+	s.scope.Logger().Info("Checking expiration date of ACM certificate")
+
+	cert, err := s.getACMCertificate(arn)
+	if err != nil {
+		return nil, err
+	}
+
+	return cert.NotAfter, nil
 }
 
 // IsValidated checks wheter an ACM certificate's ownership is already validated or not.
 func (s *Service) IsValidated(arn string) (bool, error) {
-	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
-		CertificateArn: aws.String(arn),
-	})
+	s.scope.Logger().Info("Checking ACM certificate's validation status")
+
+	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return false, err
 	}
 
-	if len(output.Certificate.DomainValidationOptions) == 0 {
+	if len(cert.DomainValidationOptions) == 0 {
 		return false, nil
 	}
 
 	renewalValidationPending := false
-	if output.Certificate.RenewalSummary != nil && output.Certificate.RenewalSummary.RenewalStatus != nil {
-		renewalValidationPending = *output.Certificate.RenewalSummary.RenewalStatus == acm.RenewalStatusPendingValidation
+	if cert.RenewalSummary != nil && cert.RenewalSummary.RenewalStatus != nil {
+		renewalValidationPending = *cert.RenewalSummary.RenewalStatus == acm.RenewalStatusPendingValidation
 	}
 
-	validated := *output.Certificate.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess
+	validated := *cert.DomainValidationOptions[0].ValidationStatus == acm.DomainStatusSuccess
 	return validated && !renewalValidationPending, nil
 }
 
 // GetValidationCNAME returns a CNAME record that needs to be created in order for automated domain ownership validation to work.
 func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
-	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
-		CertificateArn: aws.String(arn),
-	})
+	s.scope.Logger().Info("Generating CNAME record for ACM certificate")
+
+	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return nil, err
 	}
 
 	// If certificate is just created, validation data might be missing.
-	if len(output.Certificate.DomainValidationOptions) == 0 ||
-		output.Certificate.DomainValidationOptions[0].ResourceRecord == nil ||
-		output.Certificate.DomainValidationOptions[0].ResourceRecord.Name == nil ||
-		output.Certificate.DomainValidationOptions[0].ResourceRecord.Value == nil {
+	if len(cert.DomainValidationOptions) == 0 ||
+		cert.DomainValidationOptions[0].ResourceRecord == nil ||
+		cert.DomainValidationOptions[0].ResourceRecord.Name == nil ||
+		cert.DomainValidationOptions[0].ResourceRecord.Value == nil {
 		return nil, microerror.Mask(domainValidationDnsRecordNotFound)
 	}
 
 	return &route53.CNAME{
-		Name:  *output.Certificate.DomainValidationOptions[0].ResourceRecord.Name,
-		Value: *output.Certificate.DomainValidationOptions[0].ResourceRecord.Value,
+		Name:  *cert.DomainValidationOptions[0].ResourceRecord.Name,
+		Value: *cert.DomainValidationOptions[0].ResourceRecord.Value,
 	}, nil
 }
 
@@ -169,6 +179,31 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 	}
 
 	return nil, nil
+}
+
+func (s *Service) getACMCertificate(arn string) (*acm.CertificateDetail, error) {
+
+	cacheKey := fmt.Sprintf("acm/arn=%q/describe-certificate", arn)
+
+	if cachedValue, ok := s.scope.Cache().Get(cacheKey); ok {
+		s.scope.Logger().WithValues("arn", arn).Info("Found acm certificate in the cache")
+		cachedCert := cachedValue.(*acm.CertificateDetail)
+
+		return cachedCert, nil
+	}
+
+	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
+		CertificateArn: aws.String(arn),
+	})
+	if err != nil {
+		return nil, microerror.Mask(err)
+	}
+
+	// We want to avoid hitting the API twice in the same reconciliation loop, but avoid waiting too long to get
+	// changes in the certificate status happening on AWS side, so we cache it for a short time only.
+	s.scope.Cache().Set(cacheKey, output.Certificate, 30*time.Second)
+
+	return output.Certificate, nil
 }
 
 func getACMCertificates(acmClient acmiface.ACMAPI) ([]*acm.CertificateSummary, error) {

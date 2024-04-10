@@ -159,7 +159,17 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 			}
 
-			if !issued {
+			if issued {
+				notAfter, err := s.ACM.GetCertificateExpirationTS(*certificateArn)
+				if err != nil {
+					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+					s.Scope.Logger().Error(err, "failed to check ACM certificate's expiration date")
+					return err
+				}
+
+				ctrlmetrics.Certs.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace(), cloudfrontAliasDomain).Set(float64(notAfter.Unix()))
+
+			} else {
 				s.Scope.Logger().Info("ACM certificate is not issued yet")
 
 				return microerror.Mask(certificateNotIssuedError)

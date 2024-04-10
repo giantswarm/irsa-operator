@@ -6,30 +6,43 @@ import (
 )
 
 const (
-	metricNamespace = "irsa_operator"
-	metricSubsystem = "cluster"
+	metricNamespace               = "irsa_operator"
+	errorMetricSubsystem          = "cluster"
+	acmCertificateMetricSubsystem = "acm_certificate"
 
-	labelAccountID    = "account_id"
-	labelCluster      = "cluster_id"
-	labelNamespace    = "cluster_namespace"
-	labelInstallation = "installation"
+	labelAccountID       = "account_id"
+	labelCertificateName = "certificate_name"
+	labelCluster         = "cluster_id"
+	labelNamespace       = "cluster_namespace"
+	labelInstallation    = "installation"
 )
 
 var (
-	labels = []string{labelInstallation, labelAccountID, labelCluster, labelNamespace}
+	commonLabels = []string{labelInstallation, labelAccountID, labelCluster, labelNamespace}
 
 	Errors = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
-			Subsystem: metricSubsystem,
+			Subsystem: errorMetricSubsystem,
 			Name:      "errors",
 			Help:      "Number of errors",
 		},
-		labels,
+		commonLabels,
+	)
+
+	Certs = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metricNamespace,
+			Subsystem: acmCertificateMetricSubsystem,
+			Name:      "not_after",
+			Help:      "Expiration date of ACM certificates used for IRSA",
+		},
+		append(commonLabels, labelCertificateName),
 	)
 )
 
 func init() {
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(Errors)
+	metrics.Registry.MustRegister(Certs)
 }
