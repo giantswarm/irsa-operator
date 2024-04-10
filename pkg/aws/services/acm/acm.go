@@ -178,12 +178,26 @@ func (s *Service) findCertificateForDomain(domain string) (*string, error) {
 }
 
 func (s *Service) getACMCertificate(arn string) (*acm.CertificateDetail, error) {
+
+	cacheKey := fmt.Sprintf("acm/arn=%q/describe-certificate", arn)
+
+	if cachedValue, ok := s.scope.Cache().Get(cacheKey); ok {
+		s.scope.Logger().WithValues("arn", arn).Info("Found acm certificate in the cache")
+		cachedCert := cachedValue.(*acm.CertificateDetail)
+
+		return cachedCert, nil
+	}
+
 	output, err := s.Client.DescribeCertificate(&acm.DescribeCertificateInput{
 		CertificateArn: aws.String(arn),
 	})
 	if err != nil {
 		return nil, microerror.Mask(err)
 	}
+
+	// We want to avoid hitting the API twice in the same reconciliation loop, but avoid waiting too long to get
+	// changes in the certificate status happening on AWS side, so we cache it for a short time only.
+	s.scope.Cache().Set(cacheKey, output.Certificate, 30*time.Second)
 
 	return output.Certificate, nil
 }
