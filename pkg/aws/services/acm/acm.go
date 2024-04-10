@@ -100,6 +100,8 @@ func (s *Service) GetCertificateExpirationTS(arn string) (*time.Time, error) {
 
 // IsValidated checks wheter an ACM certificate's ownership is already validated or not.
 func (s *Service) IsValidated(arn string) (bool, error) {
+	s.scope.Logger().Info("Checking ACM certificate's validation status")
+
 	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return false, err
@@ -120,6 +122,8 @@ func (s *Service) IsValidated(arn string) (bool, error) {
 
 // GetValidationCNAME returns a CNAME record that needs to be created in order for automated domain ownership validation to work.
 func (s *Service) GetValidationCNAME(arn string) (*route53.CNAME, error) {
+	s.scope.Logger().Info("Generating CNAME record for ACM certificate")
+
 	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return nil, err
