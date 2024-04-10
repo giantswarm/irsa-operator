@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2024-04-10
+
 ### Fixed
 
 - Add switch for the PodMonitor
@@ -374,7 +376,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.26.2...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.26.3...HEAD
+[0.26.3]: https://github.com/giantswarm/irsa-operator/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/giantswarm/irsa-operator/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/giantswarm/irsa-operator/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/giantswarm/irsa-operator/compare/v0.25.0...v0.26.0
