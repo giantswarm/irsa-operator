@@ -88,6 +88,8 @@ func (s *Service) IsCertificateIssued(arn string) (bool, error) {
 }
 
 func (s *Service) GetCertificateExpirationTS(arn string) (*time.Time, error) {
+	s.scope.Logger().Info("Checking expiration date of ACM certificate")
+
 	cert, err := s.getACMCertificate(arn)
 	if err != nil {
 		return nil, err
