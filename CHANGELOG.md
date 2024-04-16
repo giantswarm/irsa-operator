@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Add taint toleration.
+- Add node affinity to prefer scheduling CAPI pods to control-plane nodes.
+
 ## [0.27.0] - 2024-04-10
 
 ### Added
