@@ -8,7 +8,7 @@ require (
 	github.com/giantswarm/apiextensions/v6 v6.6.0
 	github.com/giantswarm/backoff v1.0.0
 	github.com/giantswarm/microerror v0.4.1
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
