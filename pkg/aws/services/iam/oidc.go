@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
-	"github.com/nhalstead/sprint"
 	"github.com/pkg/errors"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
@@ -31,6 +30,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 	}
 
 	thumbprints := make([]*string, 0)
+	thumbprintsSeen := make(map[string]bool)
 	for _, identityProviderURL := range identityProviderURLs {
 		tps, err := caThumbPrints(identityProviderURL)
 		if err != nil {
@@ -38,14 +38,15 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		}
 
 		// avoid duplicates
-	OUTER:
 		for _, tp := range tps {
-			for _, existing := range thumbprints {
-				if *existing == tp {
-					continue OUTER
-				}
+			// Avoid pointer aliasing in Go <1.22 by creating a loop-scoped variable. Also ensure same case so we don't
+			// get such duplicates.
+			tp := strings.ToLower(tp)
+
+			if _, seen := thumbprintsSeen[tp]; !seen {
+				thumbprints = append(thumbprints, &tp)
+				thumbprintsSeen[tp] = true
 			}
-			thumbprints = append(thumbprints, &tp) //nolint:gosec
 		}
 	}
 
@@ -325,16 +326,6 @@ func caThumbPrints(ep string) ([]string, error) {
 			fmt.Fprintf(&buf, "%02X", f)
 		}
 		ret = append(ret, strings.ToLower(buf.String()))
-	}
-
-	// Leaf certificate (https://github.com/giantswarm/roadmap/issues/1937).
-	{
-		fp, err := sprint.GetFingerprint(ep, false)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-
-		ret = append(ret, strings.Replace(fp.SHA1, ":", "", -1))
 	}
 
 	return ret, nil

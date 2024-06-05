@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1] - 2024-04-17
+
+### Changed
+
+- Add taint toleration.
+- Add node affinity to prefer scheduling CAPI pods to control-plane nodes.
+
+## [0.27.0] - 2024-04-10
+
+### Added
+
+- Add metric `irsa_operator_acm_certificate_not_after` metric to expose the `NotAfter` timestamp of the ACM certificate.
+
+### Changed
+
+- Add a cache to ACM service to avoid hitting the API too hard.
+
+### Fixed
+
+- Vintage: fix not performing validation on renewal of certificate.
+
+## [0.26.3] - 2024-04-10
+
+### Fixed
+
+- Add switch for the PodMonitor
+
+## [0.26.2] - 2024-04-02
+
+### Fixed
+
+- Use PodMonitor instead of legacy labels.
+
+## [0.26.1] - 2024-03-20
+
+### Fixed
+
+- CAPA: fix not performing validation on renewal of certificate.
+
+## [0.26.0] - 2024-03-19
+
+### Changed
+
+- CAPA: check for deletion timestamp on the Cluster CR.
+- CAPA: always check if certificate should be validated
+
+## [0.25.0] - 2024-02-13
+
+### Fixed
+
+- Fix update of OIDC provider thumbprint list with root CA.
+
 ## [0.24.1] - 2024-01-30
 
 ### Changed
@@ -345,7 +397,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.27.1...HEAD
+[0.27.1]: https://github.com/giantswarm/irsa-operator/compare/v0.27.0...v0.27.1
+[0.27.0]: https://github.com/giantswarm/irsa-operator/compare/v0.26.3...v0.27.0
+[0.26.3]: https://github.com/giantswarm/irsa-operator/compare/v0.26.2...v0.26.3
+[0.26.2]: https://github.com/giantswarm/irsa-operator/compare/v0.26.1...v0.26.2
+[0.26.1]: https://github.com/giantswarm/irsa-operator/compare/v0.26.0...v0.26.1
+[0.26.0]: https://github.com/giantswarm/irsa-operator/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/giantswarm/irsa-operator/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/giantswarm/irsa-operator/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/giantswarm/irsa-operator/compare/v0.23.2...v0.24.0
 [0.23.2]: https://github.com/giantswarm/irsa-operator/compare/v0.23.1...v0.23.2

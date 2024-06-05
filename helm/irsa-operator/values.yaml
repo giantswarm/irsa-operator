@@ -45,6 +45,9 @@ securityContext:
     drop:
       - ALL
 
+podMonitor:
+  enabled: true
+
 global:
   podSecurityStandards:
     enforced: false

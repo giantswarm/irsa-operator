@@ -21,6 +21,19 @@ spec:
       labels:
     {{- include "labels.selector" . | nindent 8 }}
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+            weight: 10
+          - preference:
+              matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+            weight: 10
       serviceAccountName: {{ include "resource.default.name"  . }}
       securityContext:
         runAsUser: {{ .Values.pod.user.id }}
@@ -38,6 +51,10 @@ spec:
         - "--installation={{ .Values.installation.name }}"
         - "--capa={{ .Values.capa }}"
         - "--legacy={{ .Values.legacy }}"
+        ports:
+        - name: metrics
+          protocol: TCP
+          containerPort: 8080
         securityContext:
           {{- with .Values.securityContext }}
             {{- . | toYaml | nindent 10 }}
@@ -48,6 +65,12 @@ spec:
         - mountPath: /home/.aws
           name: credentials
       terminationGracePeriodSeconds: 10
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      - effect: NoSchedule
+        key: "node.cluster.x-k8s.io/uninitialized"
+        operator: "Exists"
       volumes:
       - name: credentials
         secret:
