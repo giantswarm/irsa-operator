@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Change
+### Fixed
 
-- Adjust code for CAPA China.
+- Do not reconcile CloudFront distribution for China region
 
 ## [0.27.1] - 2024-04-17
 
