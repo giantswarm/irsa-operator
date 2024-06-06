@@ -266,16 +266,15 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			s.Scope.Logger().Error(err, "failed to upload policy")
 			return err
 		}
-	}
 
-	// Block public S3 access only for non-China region
-	if !key.IsChina(s.Scope.Region()) {
+		// Block public S3 access only for non-China region
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger().Error(err, "failed to block public access")
 			return err
 		}
 	} else {
+		// Allow public S3 access for China region
 		err = s.S3.AllowPublicAccess(s.Scope.BucketName())
 		if err != nil {
 			s.Scope.Logger().Error(err, "failed to allow public access")
