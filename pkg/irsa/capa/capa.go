@@ -259,9 +259,7 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 		cfDomain = data["domain"]
 		cfOaiId = data["originAccessIdentityId"]
-	}
-	// Update S3 policy to allow access only via Cloudfront for non-China region
-	if !key.IsChina(s.Scope.Region()) {
+
 		uploadPolicy := func() error { return s.S3.UpdatePolicy(s.Scope.BucketName(), cfOaiId) }
 		err = backoff.Retry(uploadPolicy, b)
 		if err != nil {
@@ -269,6 +267,7 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			return err
 		}
 	}
+
 	// Block public S3 access only for non-China region
 	if !key.IsChina(s.Scope.Region()) {
 		err = s.S3.BlockPublicAccess(s.Scope.BucketName())
