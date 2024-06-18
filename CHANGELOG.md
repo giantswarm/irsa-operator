@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- In legacy, only try to delete the ACM certificate if the `Cluster` CR still exists.
+
 ## [0.27.2] - 2024-06-06
 
 ### Fixed

@@ -449,23 +449,24 @@ func (s *Service) Delete(ctx context.Context) error {
 		// Fetch custom tags from Cluster CR
 		cluster := &capi.Cluster{}
 		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
-		if apierrors.IsNotFound(err) {
-			// fallthrough
-		} else if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 
-		baseDomain, err := key.BaseDomain(*cluster)
-		if err != nil {
-			return err
-		}
-
-		cloudFrontAliasDomain := key.CloudFrontAlias(baseDomain)
-		if cloudFrontAliasDomain != "" {
-			err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
+		// If the Cluster CR exists, delete the ACM certificate, otherwise just ignore it.
+		if !apierrors.IsNotFound(err) {
+			baseDomain, err := key.BaseDomain(*cluster)
 			if err != nil {
-				s.Scope.Logger().Error(err, "error deleting ACM certificate")
 				return err
+			}
+
+			cloudFrontAliasDomain := key.CloudFrontAlias(baseDomain)
+			if cloudFrontAliasDomain != "" {
+				err = s.ACM.DeleteCertificate(cloudFrontAliasDomain)
+				if err != nil {
+					s.Scope.Logger().Error(err, "error deleting ACM certificate")
+					return err
+				}
 			}
 		}
 
