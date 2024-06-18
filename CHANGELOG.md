@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Don't try to reconcile EKS clusters that don't exist anymore on the k8s API.
+
 ## [0.27.2] - 2024-06-06
 
 ### Fixed
