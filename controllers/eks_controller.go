@@ -62,7 +62,7 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	eksCluster := &eks.AWSManagedControlPlane{}
 	if err = r.Get(ctx, req.NamespacedName, eksCluster); err != nil {
-		return ctrl.Result{}, microerror.Mask(err)
+		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
