@@ -61,7 +61,7 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 	s.Scope.Logger().Info("Reconciling AWSCluster CR for IRSA")
 
-	b := backoff.NewMaxRetries(3, 5*time.Second)
+	b := backoff.NewMaxRetries(10, 5*time.Second)
 	err := s.S3.IsBucketReady(s.Scope.BucketName())
 	// Check if S3 bucket exists
 	if err != nil {
