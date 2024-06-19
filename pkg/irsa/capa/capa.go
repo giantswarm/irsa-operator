@@ -226,13 +226,9 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			}
 
 			// create new OIDC Cloudfront config
-			cfConfig := &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      s.Scope.ConfigName(),
-					Namespace: s.Scope.ClusterNamespace(),
-				},
-				StringData: data,
-			}
+			cfConfig.Name = s.Scope.ConfigName()
+			cfConfig.Namespace = s.Scope.ClusterNamespace()
+			cfConfig.StringData = data
 
 			if err := s.Client.Create(ctx, cfConfig); err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
