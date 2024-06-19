@@ -143,7 +143,13 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 			if !validated {
 				// Check if DNS record is present
-				cname, err := s.ACM.GetValidationCNAME(*certificateArn)
+				var cname *route53.CNAME
+				getValidationCNAME := func() error {
+					var err error
+					cname, err = s.ACM.GetValidationCNAME(*certificateArn)
+					return err
+				}
+				err = backoff.Retry(getValidationCNAME, b)
 				if err != nil {
 					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 					s.Scope.Logger().Error(err, "failed to get ACM certificate's validation DNS record details")
