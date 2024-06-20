@@ -61,6 +61,9 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 	s.Scope.Logger().Info("Reconciling AWSCluster CR for IRSA")
 
+	// Most operations that require polling are quick, however some can take up
+	// to a minute to complete. Currently 75 seconds covers most of the the
+	// errors that can occur.
 	b := backoff.NewMaxRetries(15, 5*time.Second)
 	err := s.S3.IsBucketReady(s.Scope.BucketName())
 	// Check if S3 bucket exists
