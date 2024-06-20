@@ -61,7 +61,10 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 	s.Scope.Logger().Info("Reconciling AWSCluster CR for IRSA")
 
-	b := backoff.NewMaxRetries(3, 5*time.Second)
+	// Most operations that require polling are quick, however some can take up
+	// to a minute to complete. Currently 75 seconds covers most of the the
+	// errors that can occur.
+	b := backoff.NewMaxRetries(15, 5*time.Second)
 	err := s.S3.IsBucketReady(s.Scope.BucketName())
 	// Check if S3 bucket exists
 	if err != nil {
@@ -143,7 +146,13 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 			if !validated {
 				// Check if DNS record is present
-				cname, err := s.ACM.GetValidationCNAME(*certificateArn)
+				var cname *route53.CNAME
+				getValidationCNAME := func() error {
+					var err error
+					cname, err = s.ACM.GetValidationCNAME(*certificateArn)
+					return err
+				}
+				err = backoff.Retry(getValidationCNAME, b)
 				if err != nil {
 					ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 					s.Scope.Logger().Error(err, "failed to get ACM certificate's validation DNS record details")
@@ -220,13 +229,9 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			}
 
 			// create new OIDC Cloudfront config
-			cfConfig := &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      s.Scope.ConfigName(),
-					Namespace: s.Scope.ClusterNamespace(),
-				},
-				StringData: data,
-			}
+			cfConfig.Name = s.Scope.ConfigName()
+			cfConfig.Namespace = s.Scope.ClusterNamespace()
+			cfConfig.StringData = data
 
 			if err := s.Client.Create(ctx, cfConfig); err != nil {
 				ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()

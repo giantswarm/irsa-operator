@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Increase backoff total time to 75 seconds.
+- Add backoff when getting validation CNAME.
+- Fix secret update error.
+
 ## [0.27.3] - 2024-06-19
 
 ### Fixed
