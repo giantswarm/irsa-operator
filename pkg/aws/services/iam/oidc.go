@@ -63,12 +63,19 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				desiredTags = append(desiredTags, tag)
 			}
 
+			var tagKeys []string
+			for _, item := range desiredTags {
+				tagKeys = append(tagKeys, *item.Key)
+			}
+
 			for k, v := range customerTags {
-				tag := &iam.Tag{
-					Key:   aws.String(k),
-					Value: aws.String(v),
+				if !util.StringInSlice(k, tagKeys) {
+					tag := &iam.Tag{
+						Key:   aws.String(k),
+						Value: aws.String(v),
+					}
+					desiredTags = append(desiredTags, tag)
 				}
-				desiredTags = append(desiredTags, tag)
 			}
 
 			// Add a tag 'giantswarm.io/alias' that has value true for the provider having predictable URL and false for the cloudfront one

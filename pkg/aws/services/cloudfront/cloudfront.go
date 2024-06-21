@@ -145,12 +145,20 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 			customerTags[key.S3TagCluster] = s.scope.ClusterName()
 		}
 
+		var tagKeys []string
+		for _, item := range i.DistributionConfigWithTags.Tags.Items {
+			tagKeys = append(tagKeys, *item.Key)
+		}
+
 		for k, v := range customerTags {
-			tag := &cloudfront.Tag{
-				Key:   aws.String(k),
-				Value: aws.String(v),
+			// Convert i.DistributionConfigWithTags.Tags.Items to a slice of strings
+			if !util.StringInSlice(k, tagKeys) {
+				tag := &cloudfront.Tag{
+					Key:   aws.String(k),
+					Value: aws.String(v),
+				}
+				i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 			}
-			i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 		}
 	}
 

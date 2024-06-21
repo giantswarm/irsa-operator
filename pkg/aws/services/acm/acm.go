@@ -34,8 +34,16 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 		Options:    &acm.CertificateOptions{},
 		Tags: []*acm.Tag{
 			{
+				Key:   aws.String(key.S3TagOrganization),
+				Value: aws.String(util.RemoveOrg(s.scope.ClusterNamespace())),
+			},
+			{
 				Key:   aws.String(fmt.Sprintf(key.S3TagCloudProvider, s.scope.ClusterName())),
 				Value: aws.String("owned"),
+			},
+			{
+				Key:   aws.String(key.S3TagInstallation),
+				Value: aws.String(s.scope.Installation()),
 			},
 		},
 		ValidationMethod: aws.String(acm.ValidationMethodDns),
@@ -48,28 +56,19 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 		customerTags[key.S3TagCluster] = s.scope.ClusterName()
 	}
 
-	// add installation tag if missing (this is case for vintage clusters)
-	if _, ok := customerTags[key.S3TagInstallation]; !ok {
-		if customerTags == nil {
-			customerTags = make(map[string]string)
-		}
-		customerTags[key.S3TagInstallation] = s.scope.Installation()
-	}
-
-	// add organization tag if missing (this is case for vintage clusters)
-	if _, ok := customerTags[key.S3TagOrganization]; !ok {
-		if customerTags == nil {
-			customerTags = make(map[string]string)
-		}
-		customerTags[key.S3TagOrganization] = util.RemoveOrg(s.scope.ClusterNamespace())
+	var tagKeys []string
+	for _, item := range input.Tags {
+		tagKeys = append(tagKeys, *item.Key)
 	}
 
 	for k, v := range customerTags {
-		tag := &acm.Tag{
-			Key:   aws.String(k),
-			Value: aws.String(v),
+		if !util.StringInSlice(k, tagKeys) {
+			tag := &acm.Tag{
+				Key:   aws.String(k),
+				Value: aws.String(v),
+			}
+			input.Tags = append(input.Tags, tag)
 		}
-		input.Tags = append(input.Tags, tag)
 	}
 
 	s.scope.Logger().Info("Creating ACM certificate")
