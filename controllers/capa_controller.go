@@ -84,16 +84,16 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if awsCluster.DeletionTimestamp != nil {
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
+	}
+
+	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
 		finalizers := awsCluster.GetFinalizers()
 		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
 			return ctrl.Result{}, nil
 		}
-	}
-
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, microerror.Mask(err)
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
