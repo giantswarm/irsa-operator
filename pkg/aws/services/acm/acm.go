@@ -56,20 +56,15 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 		customerTags[key.S3TagCluster] = s.scope.ClusterName()
 	}
 
-	var tagKeys []string
-	for _, item := range input.Tags {
-		tagKeys = append(tagKeys, *item.Key)
+	for k, v := range customerTags {
+		tag := &acm.Tag{
+			Key:   aws.String(k),
+			Value: aws.String(v),
+		}
+		input.Tags = append(input.Tags, tag)
 	}
 
-	for k, v := range customerTags {
-		if !util.StringInSlice(k, tagKeys) {
-			tag := &acm.Tag{
-				Key:   aws.String(k),
-				Value: aws.String(v),
-			}
-			input.Tags = append(input.Tags, tag)
-		}
-	}
+	input.Tags = util.FilterUniqueTags(input.Tags)
 
 	s.scope.Logger().Info("Creating ACM certificate")
 

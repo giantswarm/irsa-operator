@@ -73,6 +73,8 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 		i.Tagging.TagSet = append(i.Tagging.TagSet, &s3.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 
+	i.Tagging.TagSet = util.FilterUniqueTags(i.Tagging.TagSet)
+
 	_, err := s.Client.PutBucketTagging(i)
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -34,4 +35,29 @@ func StringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func FilterUniqueTags[T any](tags []T) []T {
+	uniqueTags := make(map[string]string)
+	filteredTags := make([]T, 0)
+
+	for _, tag := range tags {
+		tagValue := reflect.ValueOf(tag)
+		keyField := tagValue.FieldByName("Key")
+		valueField := tagValue.FieldByName("Value")
+
+		if !keyField.IsValid() || !valueField.IsValid() {
+			continue
+		}
+
+		key := keyField.String()
+		value := valueField.String()
+
+		if _, exists := uniqueTags[key]; !exists {
+			uniqueTags[key] = value
+			filteredTags = append(filteredTags, tag)
+		}
+	}
+
+	return filteredTags
 }
