@@ -79,14 +79,21 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, microerror.Mask(err)
-	}
-
 	if annotations.HasPaused(awsCluster) {
 		logger.Info("AWSCluster is marked as paused, skipping")
 		return ctrl.Result{}, nil
+	}
+
+	if awsCluster.DeletionTimestamp != nil {
+		finalizers := awsCluster.GetFinalizers()
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
+			return ctrl.Result{}, nil
+		}
+	}
+
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
@@ -146,11 +153,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	irsaService := irsaCapa.New(clusterScope, r.Client)
 
 	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
-		finalizers := awsCluster.GetFinalizers()
-		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
-			return ctrl.Result{}, nil
-		}
-
 		err := irsaService.Delete(ctx)
 		if errors.Is(err, &irsaCapa.CloudfrontDistributionNotDisabledError{}) {
 			// Distribution is not disabled yet, let's try again in 1 minute
