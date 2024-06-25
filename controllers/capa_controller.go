@@ -90,8 +90,8 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, microerror.Mask(err)
 	}
 
-	// If the cluster is already deleted the configmap and role identity will
-	// be likely gone and we will fall into an error loop.
+	// If the cluster is already deleted the configmap  will be likely gone and
+	// we will fall into an error loop.
 	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
 		finalizers := awsCluster.GetFinalizers()
 		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
