@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.27.7] - 2024-06-25
 
+## [0.27.7] - 2024-06-25
+
 ### Fix
 
 - Updated `FilterUniqueTags` function to handle array pointers
