@@ -48,28 +48,28 @@ func TestFilterTags(t *testing.T) {
 
 	tests := []struct {
 		name string
-		tags []Tag
-		want []Tag
+		tags []*Tag
+		want []*Tag
 	}{
 		{
 			name: "nil",
 			tags: nil,
-			want: []Tag{},
+			want: []*Tag{},
 		},
 		{
 			name: "empty",
-			tags: []Tag{},
-			want: []Tag{},
+			tags: []*Tag{},
+			want: []*Tag{},
 		},
 		{
 			name: "normal",
-			tags: []Tag{
+			tags: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/organization"),
 					Value: StringPointer("test"),
 				},
 			},
-			want: []Tag{
+			want: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/organization"),
 					Value: StringPointer("test"),
@@ -78,7 +78,7 @@ func TestFilterTags(t *testing.T) {
 		},
 		{
 			name: "Duplicate Tag",
-			tags: []Tag{
+			tags: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/organization"),
 					Value: StringPointer("test"),
@@ -92,7 +92,7 @@ func TestFilterTags(t *testing.T) {
 					Value: StringPointer("test1"),
 				},
 			},
-			want: []Tag{
+			want: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/organization"),
 					Value: StringPointer("test"),
@@ -105,7 +105,7 @@ func TestFilterTags(t *testing.T) {
 		},
 		{
 			name: "Multiple Duplicate Tag",
-			tags: []Tag{
+			tags: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/installation"),
 					Value: StringPointer("test"),
@@ -127,7 +127,7 @@ func TestFilterTags(t *testing.T) {
 					Value: StringPointer("test1"),
 				},
 			},
-			want: []Tag{
+			want: []*Tag{
 				{
 					Key:   StringPointer("giantswart.io/installation"),
 					Value: StringPointer("test"),

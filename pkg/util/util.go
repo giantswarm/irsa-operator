@@ -37,16 +37,20 @@ func StringInSlice(a string, list []string) bool {
 	return false
 }
 
-func FilterUniqueTags[T any](tags []T) []T {
+func FilterUniqueTags[T any](tags []*T) []*T {
 	uniqueTags := make(map[string]string)
-	filteredTags := make([]T, 0)
+	filteredTags := make([]*T, 0)
 
 	for _, tag := range tags {
-		tagValue := reflect.ValueOf(tag)
+		if tag == nil {
+			continue
+		}
+
+		tagValue := reflect.ValueOf(*tag)
 		keyField := tagValue.FieldByName("Key")
 		valueField := tagValue.FieldByName("Value")
 
-		if !keyField.IsValid() || !valueField.IsValid() {
+		if !keyField.IsValid() || !valueField.IsValid() || keyField.IsNil() || valueField.IsNil() {
 			continue
 		}
 
