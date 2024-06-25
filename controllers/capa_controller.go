@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -79,14 +80,23 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
+	if annotations.HasPaused(awsCluster) {
+		logger.Info("AWSCluster is marked as paused, skipping")
+		return ctrl.Result{}, nil
+	}
+
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
 	}
 
-	if annotations.HasPaused(awsCluster) {
-		logger.Info("AWSCluster is marked as paused, skipping")
-		return ctrl.Result{}, nil
+	// If the cluster is already deleted the configmap  will be likely gone and
+	// we will fall into an error loop.
+	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
+		finalizers := awsCluster.GetFinalizers()
+		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
@@ -145,12 +155,10 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Create IRSA service.
 	irsaService := irsaCapa.New(clusterScope, r.Client)
 
+	// WARNING: We explicitly delete early when the Cluster CR is deleted.
+	// Otherwise the deletion is successful, but there will be too many errors
+	// emitted by the operator, which will cause it to page.
 	if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
-		finalizers := awsCluster.GetFinalizers()
-		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
-			return ctrl.Result{}, nil
-		}
-
 		err := irsaService.Delete(ctx)
 		if errors.Is(err, &irsaCapa.CloudfrontDistributionNotDisabledError{}) {
 			// Distribution is not disabled yet, let's try again in 1 minute
@@ -284,9 +292,10 @@ func getBaseDomain(clusterValuesConfigMap *v1.ConfigMap) (string, error) {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager, controllerOpts controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&capa.AWSCluster{}).
+		WithOptions(controllerOpts).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err, "failed setting up with a controller manager")

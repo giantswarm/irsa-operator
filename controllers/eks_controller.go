@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -175,9 +176,10 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *EKSClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *EKSClusterReconciler) SetupWithManager(mgr ctrl.Manager, controllerOpts controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&eks.AWSManagedControlPlane{}).
+		WithOptions(controllerOpts).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err, "failed setting up with a controller manager")

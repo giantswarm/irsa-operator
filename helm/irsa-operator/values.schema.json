@@ -41,6 +41,10 @@
         "legacy": {
             "type": "boolean"
         },
+        "maxConcurrentReconciles": {
+            "type": "integer",
+            "default": 4
+        },
         "pod": {
             "type": "object",
             "properties": {

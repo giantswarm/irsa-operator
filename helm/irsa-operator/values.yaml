@@ -5,6 +5,7 @@ aws:
 
 capa: false
 legacy: true
+maxConcurrentReconciles: 4
 
 installation:
   name: name

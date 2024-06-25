@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add option to configure controller concurrency for CAPA and EKS.
+
+### Fixed
+
+- Fix ConfigMap not found errors after deletion is done.
+
 ## [0.27.7] - 2024-06-25
 
 ### Fix
