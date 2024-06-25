@@ -64,6 +64,8 @@ func (s *Service) EnsureCertificate(domain string, customerTags map[string]strin
 		input.Tags = append(input.Tags, tag)
 	}
 
+	input.Tags = util.FilterUniqueTags(input.Tags)
+
 	s.scope.Logger().Info("Creating ACM certificate")
 
 	output, err := s.Client.RequestCertificate(input)

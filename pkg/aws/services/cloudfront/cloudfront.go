@@ -146,12 +146,15 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 		}
 
 		for k, v := range customerTags {
+			// Convert i.DistributionConfigWithTags.Tags.Items to a slice of strings
 			tag := &cloudfront.Tag{
 				Key:   aws.String(k),
 				Value: aws.String(v),
 			}
 			i.DistributionConfigWithTags.Tags.Items = append(i.DistributionConfigWithTags.Tags.Items, tag)
 		}
+
+		i.DistributionConfigWithTags.Tags.Items = util.FilterUniqueTags(i.DistributionConfigWithTags.Tags.Items)
 	}
 
 	if diff.NeedsCreate {

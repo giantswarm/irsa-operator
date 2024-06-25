@@ -63,12 +63,19 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 				desiredTags = append(desiredTags, tag)
 			}
 
+			var tagKeys []string
+			for _, item := range desiredTags {
+				tagKeys = append(tagKeys, *item.Key)
+			}
+
 			for k, v := range customerTags {
-				tag := &iam.Tag{
-					Key:   aws.String(k),
-					Value: aws.String(v),
+				if !util.StringInSlice(k, tagKeys) {
+					tag := &iam.Tag{
+						Key:   aws.String(k),
+						Value: aws.String(v),
+					}
+					desiredTags = append(desiredTags, tag)
 				}
-				desiredTags = append(desiredTags, tag)
 			}
 
 			// Add a tag 'giantswarm.io/alias' that has value true for the provider having predictable URL and false for the cloudfront one
@@ -82,7 +89,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 			})
 		}
 
-		desiredTags = removeDuplicates(desiredTags)
+		desiredTags = util.FilterUniqueTags(desiredTags)
 
 		// Check if one of the providers is already using the right URL.
 		found := false
@@ -329,17 +336,4 @@ func caThumbPrints(ep string) ([]string, error) {
 	}
 
 	return ret, nil
-}
-
-func removeDuplicates(tags []*iam.Tag) []*iam.Tag {
-	keys := make(map[string]bool)
-	list := []*iam.Tag{}
-
-	for _, entry := range tags {
-		if _, value := keys[*entry.Key]; !value {
-			keys[*entry.Key] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }
