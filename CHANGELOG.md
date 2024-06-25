@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.6] - 2024-06-25
+
 ### Fix
 
 - Updated `FilterUniqueTags` function to handle AWS Tags with pointer fields
@@ -427,7 +429,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.27.5...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.27.6...HEAD
+[0.27.6]: https://github.com/giantswarm/irsa-operator/compare/v0.27.5...v0.27.6
 [0.27.5]: https://github.com/giantswarm/irsa-operator/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/giantswarm/irsa-operator/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/giantswarm/irsa-operator/compare/v0.27.2...v0.27.3
