@@ -50,8 +50,8 @@ func FilterUniqueTags[T any](tags []T) []T {
 			continue
 		}
 
-		key := keyField.String()
-		value := valueField.String()
+		key := keyField.Elem().String()
+		value := valueField.Elem().String()
 
 		if _, exists := uniqueTags[key]; !exists {
 			uniqueTags[key] = value

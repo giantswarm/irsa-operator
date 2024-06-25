@@ -36,10 +36,14 @@ func TestEnsureHTTPS(t *testing.T) {
 	}
 }
 
+func StringPointer(v string) *string {
+	return &v
+}
+
 func TestFilterTags(t *testing.T) {
 	type Tag struct {
-		Key   string
-		Value string
+		Key   *string
+		Value *string
 	}
 
 	tests := []struct {
@@ -47,6 +51,11 @@ func TestFilterTags(t *testing.T) {
 		tags []Tag
 		want []Tag
 	}{
+		{
+			name: "nil",
+			tags: nil,
+			want: []Tag{},
+		},
 		{
 			name: "empty",
 			tags: []Tag{},
@@ -56,14 +65,14 @@ func TestFilterTags(t *testing.T) {
 			name: "normal",
 			tags: []Tag{
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 			},
 			want: []Tag{
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 			},
 		},
@@ -71,26 +80,26 @@ func TestFilterTags(t *testing.T) {
 			name: "Duplicate Tag",
 			tags: []Tag{
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/cluster",
-					Value: "test1",
+					Key:   StringPointer("giantswart.io/cluster"),
+					Value: StringPointer("test1"),
 				},
 			},
 			want: []Tag{
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/cluster",
-					Value: "test1",
+					Key:   StringPointer("giantswart.io/cluster"),
+					Value: StringPointer("test1"),
 				},
 			},
 		},
@@ -98,38 +107,38 @@ func TestFilterTags(t *testing.T) {
 			name: "Multiple Duplicate Tag",
 			tags: []Tag{
 				{
-					Key:   "giantswart.io/installation",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/installation"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/installation",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/installation"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/cluster",
-					Value: "test1",
+					Key:   StringPointer("giantswart.io/cluster"),
+					Value: StringPointer("test1"),
 				},
 			},
 			want: []Tag{
 				{
-					Key:   "giantswart.io/installation",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/installation"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/organization",
-					Value: "test",
+					Key:   StringPointer("giantswart.io/organization"),
+					Value: StringPointer("test"),
 				},
 				{
-					Key:   "giantswart.io/cluster",
-					Value: "test1",
+					Key:   StringPointer("giantswart.io/cluster"),
+					Value: StringPointer("test1"),
 				},
 			},
 		},
