@@ -51,6 +51,7 @@ spec:
         - "--installation={{ .Values.installation.name }}"
         - "--capa={{ .Values.capa }}"
         - "--legacy={{ .Values.legacy }}"
+        - "--max-concurrent-reconciles={{ .Values.maxConcurrentReconciles }}"
         ports:
         - name: metrics
           protocol: TCP

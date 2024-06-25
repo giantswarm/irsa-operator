@@ -28,6 +28,7 @@ import (
 	eks "sigs.k8s.io/cluster-api-provider-aws/v2/controlplane/eks/api/v1beta2"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -57,12 +58,14 @@ func main() {
 	var legacy bool
 	var probeAddr string
 	var installation string
+	var maxConcurrentReconciles int
 
 	flag.BoolVar(&capa, "capa", false, "Reconciles on CAPA resources.")
 	flag.BoolVar(&legacy, "legacy", false, "Reconciles on GiantSwarm AWS resources.")
 	flag.StringVar(&installation, "installation", "", "The name of the installation.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 4, "The maximum number of concurrent reconciles for the controller.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -108,13 +111,16 @@ func main() {
 	}
 
 	if capa {
+		opts := controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles,
+		}
 		if err = (&controllers.CAPAClusterReconciler{
 			Client:       mgr.GetClient(),
 			Log:          ctrl.Log.WithName("capa-controller"),
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
 			Cache:        cache,
-		}).SetupWithManager(mgr); err != nil {
+		}).SetupWithManager(mgr, opts); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			os.Exit(1)
 		}
@@ -124,7 +130,7 @@ func main() {
 			Scheme:       mgr.GetScheme(),
 			Installation: installation,
 			Cache:        cache,
-		}).SetupWithManager(mgr); err != nil {
+		}).SetupWithManager(mgr, opts); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AWSManagedControlPlane")
 			os.Exit(1)
 		}

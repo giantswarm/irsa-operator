@@ -292,12 +292,10 @@ func getBaseDomain(clusterValuesConfigMap *v1.ConfigMap) (string, error) {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CAPAClusterReconciler) SetupWithManager(mgr ctrl.Manager, controllerOpts controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&capa.AWSCluster{}).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: 4,
-		}).
+		WithOptions(controllerOpts).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err, "failed setting up with a controller manager")
