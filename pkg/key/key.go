@@ -76,6 +76,10 @@ func IsV19Release(releaseVersion *semver.Version) bool {
 	return releaseVersion.Major >= 19
 }
 
+func IsCAPARelease(releaseVersion *semver.Version) bool {
+	return releaseVersion.Major >= 25
+}
+
 func ContainsFinalizer(s []string, str string) bool {
 	for _, v := range s {
 		if v == str {
