@@ -140,10 +140,9 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ConfigName:       key.ConfigName(awsCluster.Name),
 		Installation:     r.Installation,
 		Region:           awsCluster.Spec.Region,
-		// This is a hack to allow CAPI clusters to drop the 'release.giantswarm.io/version' label.
-		ReleaseVersion: key.Release(cluster),
-		SecretName:     key.SecretName(awsCluster.Name),
-		VPCMode:        awsCluster.Annotations["aws.giantswarm.io/vpc-mode"],
+		ReleaseVersion:   key.Release(cluster),
+		SecretName:       key.SecretName(awsCluster.Name),
+		VPCMode:          awsCluster.Annotations["aws.giantswarm.io/vpc-mode"],
 
 		Logger:  logger,
 		Cluster: awsCluster,
