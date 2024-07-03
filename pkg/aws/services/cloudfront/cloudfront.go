@@ -29,7 +29,7 @@ type DistributionConfig struct {
 func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	i := &cloudfront.CreateCloudFrontOriginAccessIdentityInput{
 		CloudFrontOriginAccessIdentityConfig: &cloudfront.OriginAccessIdentityConfig{
-			CallerReference: aws.String(fmt.Sprintf("access-identity-cluster-%s", s.scope.ClusterName())),
+			CallerReference: aws.String(s.scope.CallerReference()),
 			Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 		},
 	}
@@ -77,7 +77,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 					Items:    config.Aliases,
 					Quantity: aws.Int64(int64(len(config.Aliases))),
 				},
-				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
+				CallerReference: aws.String(s.scope.CallerReference()),
 				Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 					// AWS managed cache policy id, caching is disabled for the distribution.

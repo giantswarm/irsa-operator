@@ -192,6 +192,14 @@ func (s *ClusterScope) ClusterName() string {
 	return s.clusterName
 }
 
+func (s *ClusterScope) CallerReference() string {
+	if key.IsCAPARelease(s.Release()) {
+		return fmt.Sprintf("distribution-cluster-%s-capa", s.clusterName)
+	} else {
+		return fmt.Sprintf("distribution-cluster-%s", s.clusterName)
+	}
+}
+
 // ClusterNameSpace returns the namespace of AWS infrastructure cluster object.
 func (s *ClusterScope) ClusterNamespace() string {
 	return s.clusterNamespace
