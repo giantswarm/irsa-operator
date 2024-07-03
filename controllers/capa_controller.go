@@ -140,11 +140,11 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ConfigName:       key.ConfigName(awsCluster.Name),
 		Installation:     r.Installation,
 		Region:           awsCluster.Spec.Region,
-		ReleaseVersion:   "25.0.0",
 		// Change to this once we have all clusters in 25.0.0
 		// ReleaseVersion:   key.Release(cluster),
-		SecretName: key.SecretName(awsCluster.Name),
-		VPCMode:    awsCluster.Annotations["aws.giantswarm.io/vpc-mode"],
+		ReleaseVersion: "25.0.0",
+		SecretName:     key.SecretName(awsCluster.Name),
+		VPCMode:        awsCluster.Annotations["aws.giantswarm.io/vpc-mode"],
 
 		Logger:  logger,
 		Cluster: awsCluster,
