@@ -19,7 +19,7 @@ const (
 	// Use Cloudfront alias before v19.0.0
 	IRSAPreCloudfrontAlias = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
 	// Keep IRSA annotation
-	KeepIRSAAnnotation = "giantswarm.io/keep-irsa"
+	KeepIRSALabel = "giantswarm.io/keep-irsa"
 
 	S3TagCloudProvider = "kubernetes.io/cluster/%s"
 	S3TagCluster       = "giantswarm.io/cluster"
@@ -47,7 +47,7 @@ func Release(getter LabelsGetter) string {
 }
 
 func KeepOnDeletion(getter LabelsGetter) bool {
-	_, ok := getter.GetLabels()[KeepIRSAAnnotation]
+	_, ok := getter.GetLabels()[KeepIRSALabel]
 	return ok
 }
 
