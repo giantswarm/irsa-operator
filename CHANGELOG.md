@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2024-07-04
+
 ### Added
 
 - Prevent deletion of IRSA related components with "giantswarm.io/keep-irsa" label.
@@ -454,7 +456,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/giantswarm/irsa-operator/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/giantswarm/irsa-operator/compare/v0.27.7...v0.28.0
 [0.27.7]: https://github.com/giantswarm/irsa-operator/compare/v0.27.6...v0.27.7
 [0.27.6]: https://github.com/giantswarm/irsa-operator/compare/v0.27.5...v0.27.6
