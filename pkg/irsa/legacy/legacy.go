@@ -364,7 +364,20 @@ func (s *Service) Reconcile(ctx context.Context) error {
 }
 
 func (s *Service) Delete(ctx context.Context) error {
-	err := s.S3.DeleteFiles(s.Scope.BucketName())
+
+	cluster := &capi.Cluster{}
+	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
+	if apierrors.IsNotFound(err) {
+		// fallthrough
+	} else if err != nil {
+		return err
+	}
+
+	if key.KeepOnDeletion(cluster) {
+		return nil
+	}
+
+	err = s.S3.DeleteFiles(s.Scope.BucketName())
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to delete S3 files")
@@ -443,15 +456,6 @@ func (s *Service) Delete(ctx context.Context) error {
 		err = s.Cloudfront.DeleteOriginAccessIdentity(cfOriginAccessIdentityId)
 		if err != nil {
 			s.Scope.Logger().Error(err, "failed to delete cloudfront origin access identity for cluster")
-			return err
-		}
-
-		// Fetch custom tags from Cluster CR
-		cluster := &capi.Cluster{}
-		err = s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
-		if apierrors.IsNotFound(err) {
-			// fallthrough
-		} else if err != nil {
 			return err
 		}
 

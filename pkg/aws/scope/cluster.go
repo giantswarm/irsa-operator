@@ -169,7 +169,9 @@ func (s *ClusterScope) BaseDomain() string {
 
 // BucketName returns the name of the OIDC S3 bucket.
 func (s *ClusterScope) BucketName() string {
-	if key.IsV18Release(s.Release()) || s.MigrationNeeded() {
+	if key.IsCAPARelease(s.Release()) {
+		return fmt.Sprintf("%s-v3", s.bucketName)
+	} else if key.IsV18Release(s.Release()) || s.MigrationNeeded() {
 		return fmt.Sprintf("%s-v2", s.bucketName)
 	} else {
 		return s.bucketName
@@ -188,6 +190,14 @@ func (s *ClusterScope) Cluster() runtime.Object {
 // ClusterName returns the name of AWS infrastructure cluster object.
 func (s *ClusterScope) ClusterName() string {
 	return s.clusterName
+}
+
+func (s *ClusterScope) CallerReference() string {
+	if key.IsCAPARelease(s.Release()) {
+		return fmt.Sprintf("distribution-cluster-%s-capa", s.clusterName)
+	} else {
+		return fmt.Sprintf("distribution-cluster-%s", s.clusterName)
+	}
 }
 
 // ClusterNameSpace returns the namespace of AWS infrastructure cluster object.

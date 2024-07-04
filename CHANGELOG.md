@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prevent deletion of IRSA related components with "giantswarm.io/keep-irsa" label.
+
+### Fixed
+
+- CAPA clusters will create a new cloudfront distribution when migrating clusters.
+- Use different S3 buckets bewteen CAPA and Vintage.
+
 ## [0.28.0] - 2024-06-25
 
 ### Added

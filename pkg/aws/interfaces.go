@@ -38,4 +38,6 @@ type ClusterScoper interface {
 	MigrationNeeded() bool
 	// Region returns the AWS infrastructure cluster object region.
 	Region() string
+	// CloudFormation Caller Reference
+	CallerReference() string
 }

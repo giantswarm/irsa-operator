@@ -29,7 +29,7 @@ type DistributionConfig struct {
 func (s *Service) CreateOriginAccessIdentity() (string, error) {
 	i := &cloudfront.CreateCloudFrontOriginAccessIdentityInput{
 		CloudFrontOriginAccessIdentityConfig: &cloudfront.OriginAccessIdentityConfig{
-			CallerReference: aws.String(fmt.Sprintf("access-identity-cluster-%s", s.scope.ClusterName())),
+			CallerReference: aws.String(s.scope.CallerReference()),
 			Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 		},
 	}
@@ -47,7 +47,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	s.scope.Logger().Info("Ensuring cloudfront distribution")
 
 	// Check if distribution already exists.
-	d, err := s.findDistribution()
+	d, err := s.findDistribution(*config.Aliases[0])
 	if err != nil {
 		s.scope.Logger().Error(err, "Error checking if cloudfront distribution already exists")
 		return nil, err
@@ -77,7 +77,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 					Items:    config.Aliases,
 					Quantity: aws.Int64(int64(len(config.Aliases))),
 				},
-				CallerReference: aws.String(fmt.Sprintf("distribution-cluster-%s", s.scope.ClusterName())),
+				CallerReference: aws.String(s.scope.CallerReference()),
 				Comment:         aws.String(key.CloudFrontDistributionComment(s.scope.ClusterName())),
 				DefaultCacheBehavior: &cloudfront.DefaultCacheBehavior{
 					// AWS managed cache policy id, caching is disabled for the distribution.
@@ -227,7 +227,7 @@ func (s *Service) EnsureDistribution(config DistributionConfig) (*Distribution, 
 	return &Distribution{ARN: *diff.Existing.ARN, DistributionId: *diff.Existing.Id, Domain: *diff.Existing.DomainName, OriginAccessIdentityId: oaiId}, nil
 }
 
-func (s *Service) findDistribution() (*Distribution, error) {
+func (s *Service) findDistribution(CloudFrontAlias string) (*Distribution, error) {
 	// Check if distribution already exists
 	var err error
 	var output *cloudfront.ListDistributionsOutput
@@ -252,7 +252,8 @@ func (s *Service) findDistribution() (*Distribution, error) {
 
 		for _, d := range output.DistributionList.Items {
 			// There are no tags in this API response, so we have to match on the Comment :(
-			if *d.Comment == key.CloudFrontDistributionComment(s.scope.ClusterName()) {
+			if *d.Comment == key.CloudFrontDistributionComment(s.scope.ClusterName()) && CloudFrontAlias == *d.Aliases.Items[0] {
+
 				// This is something like origin-access-identity/cloudfront/E2IB68Y7SJQAKJ
 				fullId := *d.Origins.Items[0].S3OriginConfig.OriginAccessIdentity
 

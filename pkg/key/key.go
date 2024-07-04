@@ -18,6 +18,8 @@ const (
 	IRSAMigrationAnnotation = "alpha.aws.giantswarm.io/irsa-migration"
 	// Use Cloudfront alias before v19.0.0
 	IRSAPreCloudfrontAlias = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
+	// Keep IRSA annotation
+	KeepIRSALabel = "giantswarm.io/keep-irsa"
 
 	S3TagCloudProvider = "kubernetes.io/cluster/%s"
 	S3TagCluster       = "giantswarm.io/cluster"
@@ -42,6 +44,11 @@ func SecretName(clusterName string) string {
 
 func Release(getter LabelsGetter) string {
 	return getter.GetLabels()[ReleaseLabel]
+}
+
+func KeepOnDeletion(getter LabelsGetter) bool {
+	_, ok := getter.GetLabels()[KeepIRSALabel]
+	return ok
 }
 
 func AWSEndpoint(region string) string {
@@ -74,6 +81,10 @@ func IsV18Release(releaseVersion *semver.Version) bool {
 
 func IsV19Release(releaseVersion *semver.Version) bool {
 	return releaseVersion.Major >= 19
+}
+
+func IsCAPARelease(releaseVersion *semver.Version) bool {
+	return releaseVersion.Major >= 25
 }
 
 func ContainsFinalizer(s []string, str string) bool {
