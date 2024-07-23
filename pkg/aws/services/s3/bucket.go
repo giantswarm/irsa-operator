@@ -80,7 +80,7 @@ func (s *Service) CreateTags(bucketName string, customerTags map[string]string) 
 		return err
 	}
 
-	s.scope.Logger().Info("Created tags for S3 bucket", bucketName)
+	s.scope.Logger().Info("Created tags for S3 bucket", "bucket", bucketName)
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (s *Service) EncryptBucket(bucketName string) error {
 		return err
 	}
 
-	s.scope.Logger().Info("Encrypted S3 bucket", bucketName)
+	s.scope.Logger().Info("Encrypted S3 bucket", "bucket", bucketName)
 	return nil
 }
 
@@ -136,7 +136,7 @@ func (s *Service) IsBucketReady(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Logger().Info("S3 bucket already exists, skipping creation", bucketName)
+	s.scope.Logger().Info("S3 bucket already exists, skipping creation", "bucket", bucketName)
 	return nil
 }
 
@@ -195,7 +195,7 @@ func (s *Service) UpdatePolicy(bucketName, oaiId string) error {
 		return err
 	}
 
-	s.scope.Logger().Info("Restricted access to allow Cloudfront reaching S3 bucket", bucketName)
+	s.scope.Logger().Info("Restricted access to allow Cloudfront reaching S3 bucket", "bucket", bucketName)
 	return nil
 }
 
@@ -213,7 +213,7 @@ func (s *Service) BlockPublicAccess(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Logger().Info("Blocked public access for S3 bucket", bucketName)
+	s.scope.Logger().Info("Blocked public access for S3 bucket", "bucket", bucketName)
 	return nil
 
 }
@@ -232,7 +232,7 @@ func (s *Service) AllowPublicAccess(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	s.scope.Logger().Info("Allowed public access for S3 bucket", bucketName)
+	s.scope.Logger().Info("Allowed public access for S3 bucket", "bucket", bucketName)
 	return nil
 
 }
