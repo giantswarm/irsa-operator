@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Vintage AWS: Consider `giantswarm.io/keep-irsa` label on the `AWSCluster` object. Previously, we checked on the `Cluster` object, but if that was already independently deleted during a cluster migration, a bug led to deleting the IRSA cloud resources (incl. OIDC provider). The [cluster migration CLI now automatically puts this label on the `AWSCluster` object](https://github.com/giantswarm/capi-migration-cli/pull/119).
+
 ## [0.29.0] - 2024-07-04
 
 ### Added
 
-- Prevent deletion of IRSA related components with "giantswarm.io/keep-irsa" label.
+- Vintage AWS: Prevent deletion of IRSA related components with `giantswarm.io/keep-irsa` label.
 
 ### Fixed
 
