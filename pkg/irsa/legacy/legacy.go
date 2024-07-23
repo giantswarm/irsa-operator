@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	infrastructurev1alpha3 "github.com/giantswarm/apiextensions/v6/pkg/apis/infrastructure/v1alpha3"
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
 	v1 "k8s.io/api/core/v1"
@@ -363,8 +364,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) Delete(ctx context.Context) error {
-
+func (s *Service) Delete(ctx context.Context, awsCluster *infrastructurev1alpha3.AWSCluster) error {
 	cluster := &capi.Cluster{}
 	err := s.Client.Get(ctx, types.NamespacedName{Namespace: s.Scope.ClusterNamespace(), Name: s.Scope.ClusterName()}, cluster)
 	if apierrors.IsNotFound(err) {
@@ -373,6 +373,12 @@ func (s *Service) Delete(ctx context.Context) error {
 		return err
 	}
 
+	// We first had the label on the `Cluster` object until we noticed that it could get deleted independently
+	// from `AWSCluster` (which irsa-operator reconciles). To not run into accidental OIDC deletion, we now put the
+	// label on `AWSCluster` (via capi-migration-cli).
+	if key.KeepOnDeletion(awsCluster) {
+		return nil
+	}
 	if key.KeepOnDeletion(cluster) {
 		return nil
 	}

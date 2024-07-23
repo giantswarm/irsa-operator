@@ -171,7 +171,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, nil
 		}
 
-		err := irsaService.Delete(ctx)
+		err := irsaService.Delete(ctx, cluster)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
