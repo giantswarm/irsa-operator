@@ -252,7 +252,7 @@ func (r *CAPAClusterReconciler) removeAWSClusterFinalizer(ctx context.Context, l
 		// k8serrors package. We have to get the cluster again with the now
 		// removed finalizer(s) and try again.
 		if k8serrors.IsInvalid(err) && i < maxPatchRetries {
-			logger.Info("patching AWSCluster failed, trying again: %s", err.Error())
+			logger.Info("patching AWSCluster failed, trying again", "error", err.Error())
 			if err := r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
 				return microerror.Mask(err)
 			}
