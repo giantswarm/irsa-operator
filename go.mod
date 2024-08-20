@@ -14,7 +14,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.20.0
+	github.com/prometheus/client_golang v1.20.1
 	golang.org/x/text v0.16.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.29.3
