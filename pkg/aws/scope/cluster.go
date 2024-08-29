@@ -18,22 +18,23 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	AccountID          string
-	ARN                string
-	BaseDomain         string
-	BucketName         string
-	Cache              *gocache.Cache
-	Cluster            runtime.Object
-	ClusterName        string
-	ClusterNamespace   string
-	ConfigName         string
-	Installation       string
-	Migration          bool
-	PreCloudfrontAlias bool
-	Region             string
-	ReleaseVersion     string
-	SecretName         string
-	VPCMode            string
+	AccountID                  string
+	ARN                        string
+	BaseDomain                 string
+	BucketName                 string
+	Cache                      *gocache.Cache
+	Cluster                    runtime.Object
+	ClusterName                string
+	ClusterNamespace           string
+	ConfigName                 string
+	Installation               string
+	KeepCloudFrontOIDCProvider bool
+	Migration                  bool
+	PreCloudfrontAlias         bool
+	Region                     string
+	ReleaseVersion             string
+	SecretName                 string
+	VPCMode                    string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -101,23 +102,24 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	params.Logger.Info(fmt.Sprintf("assumed role %s", *o.Arn))
 
 	return &ClusterScope{
-		accountID:          params.AccountID,
-		assumeRole:         params.ARN,
-		baseDomain:         params.BaseDomain,
-		bucketName:         params.BucketName,
-		cache:              params.Cache,
-		cluster:            params.Cluster,
-		clusterName:        params.ClusterName,
-		clusterNamespace:   params.ClusterNamespace,
-		configName:         params.ConfigName,
-		installation:       params.Installation,
-		migration:          params.Migration,
-		preCloudfrontAlias: params.PreCloudfrontAlias,
-		region:             params.Region,
-		releaseVersion:     params.ReleaseVersion,
-		releaseSemver:      releaseSemver,
-		secretName:         params.SecretName,
-		vpcMode:            params.VPCMode,
+		accountID:                  params.AccountID,
+		assumeRole:                 params.ARN,
+		baseDomain:                 params.BaseDomain,
+		bucketName:                 params.BucketName,
+		cache:                      params.Cache,
+		cluster:                    params.Cluster,
+		clusterName:                params.ClusterName,
+		clusterNamespace:           params.ClusterNamespace,
+		configName:                 params.ConfigName,
+		installation:               params.Installation,
+		keepCloudFrontOIDCProvider: params.KeepCloudFrontOIDCProvider,
+		migration:                  params.Migration,
+		preCloudfrontAlias:         params.PreCloudfrontAlias,
+		region:                     params.Region,
+		releaseVersion:             params.ReleaseVersion,
+		releaseSemver:              releaseSemver,
+		secretName:                 params.SecretName,
+		vpcMode:                    params.VPCMode,
 
 		Logr:    params.Logger,
 		session: session,
@@ -126,23 +128,24 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	accountID          string
-	baseDomain         string
-	bucketName         string
-	assumeRole         string
-	cache              *gocache.Cache
-	cluster            runtime.Object
-	clusterName        string
-	clusterNamespace   string
-	configName         string
-	installation       string
-	migration          bool
-	preCloudfrontAlias bool
-	region             string
-	releaseVersion     string
-	releaseSemver      semver.Version
-	secretName         string
-	vpcMode            string
+	accountID                  string
+	baseDomain                 string
+	bucketName                 string
+	assumeRole                 string
+	cache                      *gocache.Cache
+	cluster                    runtime.Object
+	clusterName                string
+	clusterNamespace           string
+	configName                 string
+	installation               string
+	keepCloudFrontOIDCProvider bool
+	migration                  bool
+	preCloudfrontAlias         bool
+	region                     string
+	releaseVersion             string
+	releaseSemver              semver.Version
+	secretName                 string
+	vpcMode                    string
 
 	Logr    logr.Logger
 	session awsclient.ConfigProvider
@@ -213,6 +216,12 @@ func (s *ClusterScope) ConfigName() string {
 // Installation returns the name of the installation where the cluster object is located.
 func (s *ClusterScope) Installation() string {
 	return s.installation
+}
+
+// KeepCloudFrontOIDCProvider returns whether the `<random>.cloudfront.net` OIDC provider
+// domain should be created/kept (true) or deleted (false)
+func (s *ClusterScope) KeepCloudFrontOIDCProvider() bool {
+	return s.keepCloudFrontOIDCProvider
 }
 
 // MigrationNeeded returns if the cluster object needs migration beforehand.

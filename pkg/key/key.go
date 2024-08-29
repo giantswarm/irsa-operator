@@ -17,9 +17,16 @@ const (
 	// Upgrading existing IRSA clusters witout breaking clusters
 	IRSAMigrationAnnotation = "alpha.aws.giantswarm.io/irsa-migration"
 	// Use Cloudfront alias before v19.0.0
-	IRSAPreCloudfrontAlias = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
-	// Keep IRSA annotation
+	IRSAPreCloudfrontAliasAnnotation = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
+	// Keep IRSA label
 	KeepIRSALabel = "giantswarm.io/keep-irsa"
+	// Whether to create/keep the `<random>.cloudfront.net` OIDC provider. Only used for vintage. Defaults
+	// to `true` for backward compatibility, and only the values `true` or `false` are allowed.
+	// If a single cluster doesn't have any IAM roles using the `<random>.cloudfront.net` OIDC provider domain,
+	// this annotation can be set to `false` in order to make the operator delete that OIDC provider.
+	// The CloudFront distribution is of course not deleted, since it also hosts the OIDC configuration for the
+	// predictable `irsa.<basedomain>` OIDC provider (which customers should use).
+	KeepCloudFrontOIDCProviderAnnotation = "alpha.aws.giantswarm.io/irsa-keep-cloudfront-oidc-provider"
 
 	S3TagCloudProvider = "kubernetes.io/cluster/%s"
 	S3TagCluster       = "giantswarm.io/cluster"

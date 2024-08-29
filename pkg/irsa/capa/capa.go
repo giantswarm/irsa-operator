@@ -324,7 +324,7 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 			identityProviderURLs = append(identityProviderURLs, util.EnsureHTTPS(*alias))
 		}
 
-		return s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
+		return s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
 	}
 	err = backoff.Retry(createOIDCProvider, b)
 	if err != nil {
