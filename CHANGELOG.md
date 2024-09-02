@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2024-09-02
+
 ### Added
 
 - Conditionally delete CloudFront domain OIDC provider `<random>.cloudfront.net` for vintage AWS clusters based on `AWSCluster` annotation `alpha.aws.giantswarm.io/irsa-keep-cloudfront-oidc-provider={true,false}`
@@ -488,7 +490,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.29.4...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/giantswarm/irsa-operator/compare/v0.29.4...v0.30.0
 [0.29.4]: https://github.com/giantswarm/irsa-operator/compare/v0.29.3...v0.29.4
 [0.29.3]: https://github.com/giantswarm/irsa-operator/compare/v0.29.2...v0.29.3
 [0.29.2]: https://github.com/giantswarm/irsa-operator/compare/v0.29.1...v0.29.2

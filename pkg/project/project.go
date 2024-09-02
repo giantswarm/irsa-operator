@@ -5,7 +5,7 @@ var (
 	gitSHA      = "n/a"
 	name        = "irsa-operator"
 	source      = "https://github.com/giantswarm/irsa-operator"
-	version     = "0.29.4"
+	version     = "0.30.0"
 )
 
 func Description() string {
