@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Conditionally delete CloudFront domain OIDC provider `<random>.cloudfront.net` for vintage AWS clusters based on `AWSCluster` annotation `alpha.aws.giantswarm.io/irsa-keep-cloudfront-oidc-provider={true,false}`
+
 ## [0.29.4] - 2024-08-21
 
 ### Fixed

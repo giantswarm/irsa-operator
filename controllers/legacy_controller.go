@@ -66,8 +66,8 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	var err error
 	logger := r.Log.WithValues("namespace", req.Namespace, "cluster", req.Name)
 
-	cluster := &infrastructurev1alpha3.AWSCluster{}
-	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+	awsCluster := &infrastructurev1alpha3.AWSCluster{}
+	if err := r.Get(ctx, req.NamespacedName, awsCluster); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("Cluster no longer exists")
 			return ctrl.Result{}, nil
@@ -75,14 +75,14 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
-	releaseVersion, err := semver.New(key.Release(cluster))
+	releaseVersion, err := semver.New(key.Release(awsCluster))
 	if err != nil {
 		logger.Error(err, "Unable to extract release from AWSCluster CR")
 		return ctrl.Result{}, microerror.Mask(err)
 	}
 
 	if !key.IsV19Release(releaseVersion) {
-		if _, ok := cluster.Annotations[key.IRSAAnnotation]; !ok {
+		if _, ok := awsCluster.Annotations[key.IRSAAnnotation]; !ok {
 			logger.Info(fmt.Sprintf(
 				"AWSCluster CR do not have required annotation '%s' or release version is not v19.0.0 or higher, ignoring CR",
 				key.IRSAAnnotation))
@@ -103,13 +103,13 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 	}
-	if _, ok := cm.Data[cluster.Name]; ok {
+	if _, ok := cm.Data[awsCluster.Name]; ok {
 		migration = true
 	}
 
 	// fetch ARN from the cluster to assume role for creating dependencies
-	credentialName := cluster.Spec.Provider.CredentialSecret.Name
-	credentialNamespace := cluster.Spec.Provider.CredentialSecret.Namespace
+	credentialName := awsCluster.Spec.Provider.CredentialSecret.Name
+	credentialNamespace := awsCluster.Spec.Provider.CredentialSecret.Namespace
 	var credentialSecret = &v1.Secret{}
 	if err = r.Get(ctx, types.NamespacedName{Namespace: credentialNamespace, Name: credentialName}, credentialSecret); err != nil {
 		logger.Error(err, "failed to get credential secret")
@@ -119,7 +119,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	secretByte, ok := credentialSecret.Data["aws.awsoperator.arn"]
 	if !ok {
 		logger.Error(err, "Unable to extract ARN from secret")
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, cluster.Name))
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract ARN from secret %s for cluster %s", credentialName, awsCluster.Name))
 
 	}
 
@@ -133,30 +133,38 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if accountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
-
 	}
 
 	// Check if Cloudfront alias should be used before v19.0.0
-	_, preCloudfrontAlias := cluster.Annotations[key.IRSAPreCloudfrontAlias]
+	_, preCloudfrontAlias := awsCluster.Annotations[key.IRSAPreCloudfrontAliasAnnotation]
+
+	keepCloudFrontOIDCProvider := awsCluster.Annotations[key.KeepCloudFrontOIDCProviderAnnotation]
+	if keepCloudFrontOIDCProvider == "" {
+		keepCloudFrontOIDCProvider = "true"
+	}
+	if keepCloudFrontOIDCProvider != "true" && keepCloudFrontOIDCProvider != "false" {
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("invalid value %q in annotation %q, only `\"true\"` and `\"false\"` are allowed", keepCloudFrontOIDCProvider, key.KeepCloudFrontOIDCProviderAnnotation))
+	}
 
 	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		AccountID:          accountID,
-		ARN:                arn,
-		BucketName:         key.BucketName(accountID, cluster.Name),
-		Cache:              r.Cache,
-		ClusterName:        cluster.Name,
-		ClusterNamespace:   cluster.Namespace,
-		ConfigName:         key.ConfigName(cluster.Name),
-		Installation:       r.Installation,
-		Migration:          migration,
-		PreCloudfrontAlias: preCloudfrontAlias,
-		Region:             cluster.Spec.Provider.Region,
-		ReleaseVersion:     key.Release(cluster),
-		SecretName:         key.SecretName(cluster.Name),
+		AccountID:                  accountID,
+		ARN:                        arn,
+		BucketName:                 key.BucketName(accountID, awsCluster.Name),
+		Cache:                      r.Cache,
+		ClusterName:                awsCluster.Name,
+		ClusterNamespace:           awsCluster.Namespace,
+		ConfigName:                 key.ConfigName(awsCluster.Name),
+		Installation:               r.Installation,
+		KeepCloudFrontOIDCProvider: keepCloudFrontOIDCProvider != "false",
+		Migration:                  migration,
+		PreCloudfrontAlias:         preCloudfrontAlias,
+		Region:                     awsCluster.Spec.Provider.Region,
+		ReleaseVersion:             key.Release(awsCluster),
+		SecretName:                 key.SecretName(awsCluster.Name),
 
 		Logger:  logger,
-		Cluster: cluster,
+		Cluster: awsCluster,
 	})
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
@@ -165,45 +173,45 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Create IRSA service for Vintage.
 	irsaService := irsaLegacy.New(clusterScope, r.Client)
 
-	if !cluster.DeletionTimestamp.IsZero() {
-		finalizers := cluster.GetFinalizers()
+	if !awsCluster.DeletionTimestamp.IsZero() {
+		finalizers := awsCluster.GetFinalizers()
 		if !key.ContainsFinalizer(finalizers, key.FinalizerName) && !key.ContainsFinalizer(finalizers, key.FinalizerNameDeprecated) {
 			return ctrl.Result{}, nil
 		}
 
-		err := irsaService.Delete(ctx, cluster)
+		err := irsaService.Delete(ctx, awsCluster)
 		if err != nil {
 			return ctrl.Result{}, microerror.Mask(err)
 		}
 
-		patchHelper, err := patch.NewHelper(cluster, r.Client)
+		patchHelper, err := patch.NewHelper(awsCluster, r.Client)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerNameDeprecated)
-		controllerutil.RemoveFinalizer(cluster, key.FinalizerName)
-		err = patchHelper.Patch(ctx, cluster)
+		controllerutil.RemoveFinalizer(awsCluster, key.FinalizerNameDeprecated)
+		controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
+		err = patchHelper.Patch(ctx, awsCluster)
 		if err != nil {
 			logger.Error(err, "failed to remove finalizer from AWSCluster")
 			return ctrl.Result{}, err
 		}
 		logger.Info("successfully removed finalizer from AWSCluster")
 
-		r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
+		r.sendEvent(awsCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap deleted")
 
 		return ctrl.Result{}, nil
 
 	} else {
 		created := false
-		if !controllerutil.ContainsFinalizer(cluster, key.FinalizerName) {
+		if !controllerutil.ContainsFinalizer(awsCluster, key.FinalizerName) {
 			created = true
 
-			patchHelper, err := patch.NewHelper(cluster, r.Client)
+			patchHelper, err := patch.NewHelper(awsCluster, r.Client)
 			if err != nil {
 				return ctrl.Result{}, microerror.Mask(err)
 			}
-			controllerutil.AddFinalizer(cluster, key.FinalizerName)
-			err = patchHelper.Patch(ctx, cluster)
+			controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
+			err = patchHelper.Patch(ctx, awsCluster)
 			if err != nil {
 				logger.Error(err, "failed to add finalizer on AWSCluster")
 				return ctrl.Result{}, microerror.Mask(err)
@@ -217,7 +225,7 @@ func (r *LegacyClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		if created {
-			r.sendEvent(cluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
+			r.sendEvent(awsCluster, v1.EventTypeNormal, "IRSA", "IRSA bootstrap created")
 		}
 
 		// Re-run regularly to ensure OIDC certificate thumbprints are up to date (see `EnsureOIDCProviders`)

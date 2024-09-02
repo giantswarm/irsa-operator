@@ -48,7 +48,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		return microerror.Mask(err)
 	}
 
-	err = s.IAM.EnsureOIDCProviders(identityProviderURLs, key.STSUrl(s.Scope.Region()), cluster.Spec.AdditionalTags)
+	err = s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), cluster.Spec.AdditionalTags)
 	if err != nil {
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to create OIDC provider")

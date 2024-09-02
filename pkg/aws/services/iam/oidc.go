@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/blang/semver"
 	"github.com/giantswarm/microerror"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
 	"github.com/giantswarm/irsa-operator/pkg/key"
@@ -23,7 +24,7 @@ import (
 	"github.com/giantswarm/irsa-operator/pkg/util/tagsdiff"
 )
 
-func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID string, customerTags map[string]string) error {
+func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, identityProviderURLsToDelete []string, clientID string, customerTags map[string]string) error {
 	providers, err := s.findOIDCProviders()
 	if err != nil {
 		return microerror.Mask(err)
@@ -186,6 +187,27 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, clientID st
 		}
 		s.scope.Logger().Info(fmt.Sprintf("Created OIDC provider for URL %s", identityProviderURL))
 	}
+
+	for _, identityProviderURLToDelete := range identityProviderURLsToDelete {
+		logger := s.scope.Logger().WithValues("identityProviderURLToDelete", identityProviderURLToDelete)
+		foundProviderArn := ""
+		for arn, existing := range providers {
+			if util.EnsureHTTPS(*existing.Url) == util.EnsureHTTPS(identityProviderURLToDelete) {
+				foundProviderArn = arn
+				break
+			}
+		}
+
+		if foundProviderArn == "" {
+			logger.Info("OIDC provider for this URL does not exist, no need to delete")
+			continue
+		}
+		err = s.deleteOIDCProvider(foundProviderArn, logger)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -268,6 +290,28 @@ func (s *Service) ListCustomerOIDCTags(release *semver.Version, cfDomain, accoun
 	return oidcTags, nil
 }
 
+func (s *Service) deleteOIDCProvider(providerArn string, logger logr.Logger) error {
+	logger = logger.WithValues("providerArn", providerArn)
+
+	i := &iam.DeleteOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: aws.String(providerArn),
+	}
+
+	_, err := s.Client.DeleteOpenIDConnectProvider(i)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case iam.ErrCodeNoSuchEntityException:
+				logger.Info("OIDC provider no longer exists, skipping deletion")
+				return nil
+			}
+		}
+		return err
+	}
+	logger.Info("Deleted OIDC provider")
+	return nil
+}
+
 func (s *Service) DeleteOIDCProviders() error {
 	providers, err := s.findOIDCProviders()
 	if err != nil {
@@ -275,22 +319,10 @@ func (s *Service) DeleteOIDCProviders() error {
 	}
 
 	for providerArn := range providers {
-		i := &iam.DeleteOpenIDConnectProviderInput{
-			OpenIDConnectProviderArn: aws.String(providerArn),
-		}
-
-		_, err := s.Client.DeleteOpenIDConnectProvider(i)
+		err := s.deleteOIDCProvider(providerArn, s.scope.Logger())
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case iam.ErrCodeNoSuchEntityException:
-					s.scope.Logger().Info("OIDC provider no longer exists, skipping deletion")
-					continue
-				}
-			}
 			return err
 		}
-		s.scope.Logger().Info("Deleted OIDC provider")
 	}
 
 	return nil
