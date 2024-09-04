@@ -15,7 +15,7 @@ require (
 	github.com/peak/s3hash v0.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.2
-	golang.org/x/text v0.17.0
+	golang.org/x/text v0.18.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
