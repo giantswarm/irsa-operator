@@ -333,6 +333,18 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 		return err
 	}
 
+	createMCOIDCProvider := func() error {
+		var identityProviderURLs []string
+		// TODO: Fetch MC OIDC provider URLs
+		return s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
+	}
+	err = backoff.Retry(createMCOIDCProvider, b)
+	if err != nil {
+		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+		s.Scope.Logger().Error(err, "failed to create MC OIDC provider")
+		return err
+	}
+
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)
 	s.Scope.Logger().Info("Finished reconciling on all resources.")
 	return nil
