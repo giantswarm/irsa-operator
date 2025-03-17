@@ -103,7 +103,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 	return &ClusterScope{
 		accountID:                  params.AccountID,
-		assumeRole:                 params.ARN,
+		workloadClusterIAMRoleArn:  params.ARN,
 		baseDomain:                 params.BaseDomain,
 		bucketName:                 params.BucketName,
 		cache:                      params.Cache,
@@ -128,24 +128,25 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	accountID                  string
-	baseDomain                 string
-	bucketName                 string
-	assumeRole                 string
-	cache                      *gocache.Cache
-	cluster                    runtime.Object
-	clusterName                string
-	clusterNamespace           string
-	configName                 string
-	installation               string
-	keepCloudFrontOIDCProvider bool
-	migration                  bool
-	preCloudfrontAlias         bool
-	region                     string
-	releaseVersion             string
-	releaseSemver              semver.Version
-	secretName                 string
-	vpcMode                    string
+	accountID                   string
+	baseDomain                  string
+	bucketName                  string
+	workloadClusterIAMRoleArn   string
+	cache                       *gocache.Cache
+	cluster                     runtime.Object
+	clusterName                 string
+	clusterNamespace            string
+	configName                  string
+	installation                string
+	keepCloudFrontOIDCProvider  bool
+	managementClusterIAMRoleArn string
+	migration                   bool
+	preCloudfrontAlias          bool
+	region                      string
+	releaseVersion              string
+	releaseSemver               semver.Version
+	secretName                  string
+	vpcMode                     string
 
 	Logr    logr.Logger
 	session awsclient.ConfigProvider
@@ -162,7 +163,12 @@ func (s *ClusterScope) AccountID() string {
 
 // ARN returns the AWS SDK assumed role.
 func (s *ClusterScope) ARN() string {
-	return s.assumeRole
+	return s.workloadClusterIAMRoleArn
+}
+
+// ManagementClusterIAMRoleArn returns the IAM Role to assume when changing resources in the MC account.
+func (s *ClusterScope) ManagementClusterIAMRoleArn() string {
+	return s.managementClusterIAMRoleArn
 }
 
 // BaseDomain returns the cluster DNS zone.

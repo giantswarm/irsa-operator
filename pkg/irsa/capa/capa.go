@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	awsiam "github.com/aws/aws-sdk-go/service/iam"
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
 	"github.com/pkg/errors"
@@ -35,11 +36,12 @@ type Service struct {
 	Client client.Client
 	Scope  *scope.ClusterScope
 
-	ACM        *acm.Service
-	Cloudfront *cloudfront.Service
-	IAM        *iam.Service
-	Route53    *route53.Service
-	S3         *s3.Service
+	ACM                  *acm.Service
+	Cloudfront           *cloudfront.Service
+	IAM                  *iam.Service
+	ManagementClusterIAM *iam.Service
+	Route53              *route53.Service
+	S3                   *s3.Service
 }
 
 func New(scope *scope.ClusterScope, client client.Client) *Service {
@@ -47,11 +49,12 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		Scope:  scope,
 		Client: client,
 
-		ACM:        acm.NewService(scope),
-		Cloudfront: cloudfront.NewService(scope),
-		IAM:        iam.NewService(scope),
-		Route53:    route53.NewService(scope),
-		S3:         s3.NewService(scope),
+		ACM:                  acm.NewService(scope),
+		Cloudfront:           cloudfront.NewService(scope),
+		IAM:                  iam.NewService(scope),
+		ManagementClusterIAM: iam.NewServiceForMCAccount(scope),
+		Route53:              route53.NewService(scope),
+		S3:                   s3.NewService(scope),
 	}
 }
 
@@ -335,7 +338,20 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 
 	createMCOIDCProvider := func() error {
 		var identityProviderURLs []string
-		// TODO: Fetch MC OIDC provider URLs
+		listProvidersOutput, err := s.ManagementClusterIAM.Client.ListOpenIDConnectProviders(&awsiam.ListOpenIDConnectProvidersInput{})
+		if err != nil {
+			return err
+		}
+
+		for _, provider := range listProvidersOutput.OpenIDConnectProviderList {
+			providerDetails, err := s.ManagementClusterIAM.Client.GetOpenIDConnectProvider(&awsiam.GetOpenIDConnectProviderInput{
+				OpenIDConnectProviderArn: provider.Arn,
+			})
+			if err != nil {
+				return err
+			}
+			identityProviderURLs = append(identityProviderURLs, *providerDetails.Url)
+		}
 		return s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
 	}
 	err = backoff.Retry(createMCOIDCProvider, b)
