@@ -99,6 +99,20 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	mcAWSCluster := &capa.AWSCluster{}
+	err = r.Get(ctx, client.ObjectKey{Name: r.Installation, Namespace: "org-giantswarm"}, mcAWSCluster)
+	if err != nil {
+		logger.Error(err, "Cant find management cluster AWSCluster CR")
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+
+	mcAWSClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
+	err = r.Get(ctx, types.NamespacedName{Name: mcAWSCluster.Spec.IdentityRef.Name}, mcAWSClusterRoleIdentity)
+	if err != nil {
+		logger.Error(err, "Cant find management cluster AWSClusterRoleIdentity CR")
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+
 	awsClusterRoleIdentity := &capa.AWSClusterRoleIdentity{}
 	err = r.Get(ctx, types.NamespacedName{Name: awsCluster.Spec.IdentityRef.Name}, awsClusterRoleIdentity)
 	if err != nil {
@@ -130,16 +144,17 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// create the cluster scope.
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		AccountID:        accountID,
-		ARN:              arn,
-		BaseDomain:       baseDomain,
-		BucketName:       key.BucketName(accountID, awsCluster.Name),
-		Cache:            r.Cache,
-		ClusterName:      awsCluster.Name,
-		ClusterNamespace: awsCluster.Namespace,
-		ConfigName:       key.ConfigName(awsCluster.Name),
-		Installation:     r.Installation,
-		Region:           awsCluster.Spec.Region,
+		AccountID:                   accountID,
+		ARN:                         arn,
+		BaseDomain:                  baseDomain,
+		BucketName:                  key.BucketName(accountID, awsCluster.Name),
+		Cache:                       r.Cache,
+		ClusterName:                 awsCluster.Name,
+		ClusterNamespace:            awsCluster.Namespace,
+		ConfigName:                  key.ConfigName(awsCluster.Name),
+		Installation:                r.Installation,
+		ManagementClusterIAMRoleArn: mcAWSClusterRoleIdentity.Spec.RoleArn,
+		Region:                      awsCluster.Spec.Region,
 		// Change to this once we have all clusters in 25.0.0
 		// ReleaseVersion:   key.Release(cluster),
 		ReleaseVersion: "25.0.0",

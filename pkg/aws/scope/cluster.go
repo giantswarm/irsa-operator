@@ -18,23 +18,24 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
-	AccountID                  string
-	ARN                        string
-	BaseDomain                 string
-	BucketName                 string
-	Cache                      *gocache.Cache
-	Cluster                    runtime.Object
-	ClusterName                string
-	ClusterNamespace           string
-	ConfigName                 string
-	Installation               string
-	KeepCloudFrontOIDCProvider bool
-	Migration                  bool
-	PreCloudfrontAlias         bool
-	Region                     string
-	ReleaseVersion             string
-	SecretName                 string
-	VPCMode                    string
+	AccountID                   string
+	ARN                         string
+	BaseDomain                  string
+	BucketName                  string
+	Cache                       *gocache.Cache
+	Cluster                     runtime.Object
+	ClusterName                 string
+	ClusterNamespace            string
+	ConfigName                  string
+	Installation                string
+	KeepCloudFrontOIDCProvider  bool
+	ManagementClusterIAMRoleArn string
+	Migration                   bool
+	PreCloudfrontAlias          bool
+	Region                      string
+	ReleaseVersion              string
+	SecretName                  string
+	VPCMode                     string
 
 	Logger  logr.Logger
 	Session awsclient.ConfigProvider
@@ -90,7 +91,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create aws session")
 	}
-	// DEBUG
+
 	awsClientConfig := &aws.Config{Credentials: stscreds.NewCredentials(session, params.ARN)}
 
 	stsClient := sts.New(session, awsClientConfig)
@@ -102,24 +103,25 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	params.Logger.Info(fmt.Sprintf("assumed role %s", *o.Arn))
 
 	return &ClusterScope{
-		accountID:                  params.AccountID,
-		workloadClusterIAMRoleArn:  params.ARN,
-		baseDomain:                 params.BaseDomain,
-		bucketName:                 params.BucketName,
-		cache:                      params.Cache,
-		cluster:                    params.Cluster,
-		clusterName:                params.ClusterName,
-		clusterNamespace:           params.ClusterNamespace,
-		configName:                 params.ConfigName,
-		installation:               params.Installation,
-		keepCloudFrontOIDCProvider: params.KeepCloudFrontOIDCProvider,
-		migration:                  params.Migration,
-		preCloudfrontAlias:         params.PreCloudfrontAlias,
-		region:                     params.Region,
-		releaseVersion:             params.ReleaseVersion,
-		releaseSemver:              releaseSemver,
-		secretName:                 params.SecretName,
-		vpcMode:                    params.VPCMode,
+		accountID:                   params.AccountID,
+		managementClusterIAMRoleArn: params.ARN,
+		workloadClusterIAMRoleArn:   params.ARN,
+		baseDomain:                  params.BaseDomain,
+		bucketName:                  params.BucketName,
+		cache:                       params.Cache,
+		cluster:                     params.Cluster,
+		clusterName:                 params.ClusterName,
+		clusterNamespace:            params.ClusterNamespace,
+		configName:                  params.ConfigName,
+		installation:                params.Installation,
+		keepCloudFrontOIDCProvider:  params.KeepCloudFrontOIDCProvider,
+		migration:                   params.Migration,
+		preCloudfrontAlias:          params.PreCloudfrontAlias,
+		region:                      params.Region,
+		releaseVersion:              params.ReleaseVersion,
+		releaseSemver:               releaseSemver,
+		secretName:                  params.SecretName,
+		vpcMode:                     params.VPCMode,
 
 		Logr:    params.Logger,
 		session: session,
