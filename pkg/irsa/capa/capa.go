@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	awsiam "github.com/aws/aws-sdk-go/service/iam"
@@ -336,29 +337,43 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 		return err
 	}
 
-	createMCOIDCProvider := func() error {
-		var identityProviderURLs []string
-		listProvidersOutput, err := s.ManagementClusterIAM.Client.ListOpenIDConnectProviders(&awsiam.ListOpenIDConnectProvidersInput{})
-		if err != nil {
-			return err
-		}
-
-		for _, provider := range listProvidersOutput.OpenIDConnectProviderList {
-			providerDetails, err := s.ManagementClusterIAM.Client.GetOpenIDConnectProvider(&awsiam.GetOpenIDConnectProviderInput{
-				OpenIDConnectProviderArn: provider.Arn,
-			})
+	// We only need to create the OIDC provider if the workload cluster uses a different account than the management cluster.
+	// If they would use the same account, the OIDC provider would already be there.
+	if s.Scope.AccountID() != s.Scope.ManagementClusterAccountID() {
+		createMCOIDCProvider := func() error {
+			var identityProviderURLs []string
+			listProvidersOutput, err := s.ManagementClusterIAM.Client.ListOpenIDConnectProviders(&awsiam.ListOpenIDConnectProvidersInput{})
 			if err != nil {
 				return err
 			}
-			identityProviderURLs = append(identityProviderURLs, *providerDetails.Url)
+
+			for _, provider := range listProvidersOutput.OpenIDConnectProviderList {
+				// Only take the management cluster OIDC provider
+				if strings.Contains(*provider.Arn, fmt.Sprintf("irsa.%s", s.Scope.Installation())) {
+					providerDetails, err := s.ManagementClusterIAM.Client.GetOpenIDConnectProvider(&awsiam.GetOpenIDConnectProviderInput{
+						OpenIDConnectProviderArn: provider.Arn,
+					})
+					if err != nil {
+						return err
+					}
+					identityProviderURLs = append(identityProviderURLs, *providerDetails.Url)
+					// We only expect one OIDC provider for the MC
+					break
+				}
+			}
+			mcOIDCProviderTags := map[string]string{
+				"giantswarm.io/cluster":      s.Scope.Installation(),
+				"giantswarm.io/installation": s.Scope.Installation(),
+			}
+			s.Scope.Logger().Info("creating MC OIDC provider in WC AWS account", "identityProviderURLs", identityProviderURLs)
+			return s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), mcOIDCProviderTags)
 		}
-		return s.IAM.EnsureOIDCProviders(identityProviderURLs, []string{}, key.STSUrl(s.Scope.Region()), awsCluster.Spec.AdditionalTags)
-	}
-	err = backoff.Retry(createMCOIDCProvider, b)
-	if err != nil {
-		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
-		s.Scope.Logger().Error(err, "failed to create MC OIDC provider")
-		return err
+		err = backoff.Retry(createMCOIDCProvider, b)
+		if err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+			s.Scope.Logger().Error(err, "failed to create MC OIDC provider")
+			return err
+		}
 	}
 
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)

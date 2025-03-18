@@ -127,7 +127,13 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if accountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", string(arn)))
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", arn))
+	}
+
+	managementClusterAccountID := re.FindAllString(mcAWSClusterRoleIdentity.Spec.RoleArn, 1)[0]
+	if managementClusterAccountID == "" {
+		logger.Error(err, "Unable to extract Account ID from ARN")
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", mcAWSClusterRoleIdentity.Spec.RoleArn))
 	}
 
 	// Fetch config map created by cluster-apps-operator
@@ -153,6 +159,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ClusterNamespace:            awsCluster.Namespace,
 		ConfigName:                  key.ConfigName(awsCluster.Name),
 		Installation:                r.Installation,
+		ManagementClusterAccountID:  managementClusterAccountID,
 		ManagementClusterIAMRoleArn: mcAWSClusterRoleIdentity.Spec.RoleArn,
 		Region:                      awsCluster.Spec.Region,
 		// Change to this once we have all clusters in 25.0.0

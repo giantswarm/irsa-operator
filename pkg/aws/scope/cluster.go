@@ -29,6 +29,7 @@ type ClusterScopeParams struct {
 	ConfigName                  string
 	Installation                string
 	KeepCloudFrontOIDCProvider  bool
+	ManagementClusterAccountID  string
 	ManagementClusterIAMRoleArn string
 	Migration                   bool
 	PreCloudfrontAlias          bool
@@ -104,7 +105,8 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 	return &ClusterScope{
 		accountID:                   params.AccountID,
-		managementClusterIAMRoleArn: params.ARN,
+		managementClusterAccountID:  params.ManagementClusterAccountID,
+		managementClusterIAMRoleArn: params.ManagementClusterIAMRoleArn,
 		workloadClusterIAMRoleArn:   params.ARN,
 		baseDomain:                  params.BaseDomain,
 		bucketName:                  params.BucketName,
@@ -141,6 +143,7 @@ type ClusterScope struct {
 	configName                  string
 	installation                string
 	keepCloudFrontOIDCProvider  bool
+	managementClusterAccountID  string
 	managementClusterIAMRoleArn string
 	migration                   bool
 	preCloudfrontAlias          bool
@@ -161,6 +164,11 @@ func (s *ClusterScope) Logger() logr.Logger {
 // AccountID returns the account ID of the assumed role.
 func (s *ClusterScope) AccountID() string {
 	return s.accountID
+}
+
+// ManagementClusterAccountID returns the account ID used by the Management Cluster.
+func (s *ClusterScope) ManagementClusterAccountID() string {
+	return s.managementClusterAccountID
 }
 
 // ARN returns the AWS SDK assumed role.
