@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	awsiam "github.com/aws/aws-sdk-go/service/iam"
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
@@ -354,13 +355,20 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 					},
 					{
 						Key:   aws.String("giantswarm.io/cluster"),
-						Value: aws.String(s.Scope.ClusterName()),
+						Value: aws.String(s.Scope.Installation()),
 					},
 				},
 			}
 
 			_, err = s.IAM.Client.CreateOpenIDConnectProvider(i)
 			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					case awsiam.ErrCodeEntityAlreadyExistsException:
+						s.Scope.Logger().Info("MC OIDC provider already exists")
+						return nil
+					}
+				}
 				return microerror.Mask(err)
 			}
 			s.Scope.Logger().Info("Created MC OIDC provider in WC AWS account", "identityProviderURL", mcIdentityProviderURL)
