@@ -38,12 +38,11 @@ type Service struct {
 	Client client.Client
 	Scope  *scope.ClusterScope
 
-	ACM                  *acm.Service
-	Cloudfront           *cloudfront.Service
-	IAM                  *iam.Service
-	ManagementClusterIAM *iam.Service
-	Route53              *route53.Service
-	S3                   *s3.Service
+	ACM        *acm.Service
+	Cloudfront *cloudfront.Service
+	IAM        *iam.Service
+	Route53    *route53.Service
+	S3         *s3.Service
 }
 
 func New(scope *scope.ClusterScope, client client.Client) *Service {
@@ -51,12 +50,11 @@ func New(scope *scope.ClusterScope, client client.Client) *Service {
 		Scope:  scope,
 		Client: client,
 
-		ACM:                  acm.NewService(scope),
-		Cloudfront:           cloudfront.NewService(scope),
-		IAM:                  iam.NewService(scope),
-		ManagementClusterIAM: iam.NewServiceForMCAccount(scope),
-		Route53:              route53.NewService(scope),
-		S3:                   s3.NewService(scope),
+		ACM:        acm.NewService(scope),
+		Cloudfront: cloudfront.NewService(scope),
+		IAM:        iam.NewService(scope),
+		Route53:    route53.NewService(scope),
+		S3:         s3.NewService(scope),
 	}
 }
 

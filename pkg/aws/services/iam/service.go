@@ -19,11 +19,3 @@ func NewService(clusterScope scope.IAMScope) *Service {
 		Client: scope.NewIAMClient(clusterScope, clusterScope.ARN(), clusterScope.Cluster()),
 	}
 }
-
-// NewService returns a new service given the S3 api client.
-func NewServiceForMCAccount(clusterScope scope.IAMScope) *Service {
-	return &Service{
-		scope:  clusterScope,
-		Client: scope.NewIAMClient(clusterScope, clusterScope.ManagementClusterIAMRoleArn(), clusterScope.Cluster()),
-	}
-}

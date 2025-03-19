@@ -21,8 +21,6 @@ type ClusterScoper interface {
 
 	// ARN returns the workload cluster assumed role to operate.
 	ARN() string
-	// ManagementClusterIAMRoleArn returns the IAM Role to assume when changing resources in the MC account.
-	ManagementClusterIAMRoleArn() string
 	// BucketName returns the AWS infrastructure cluster object bucket name.
 	BucketName() string
 	// Cache returns the reconciler cache which can be used for instance to cache values across AWS SDK clients
