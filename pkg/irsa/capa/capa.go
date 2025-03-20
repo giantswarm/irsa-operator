@@ -7,8 +7,12 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	awsiam "github.com/aws/aws-sdk-go/service/iam"
 	"github.com/giantswarm/backoff"
 	"github.com/giantswarm/microerror"
 	"github.com/pkg/errors"
@@ -331,6 +335,52 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 		ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
 		s.Scope.Logger().Error(err, "failed to create OIDC provider")
 		return err
+	}
+
+	// We only need to create the OIDC provider if the workload cluster uses a different account than the management cluster.
+	// If they would use the same account, the OIDC provider would already be there.
+	if s.Scope.AccountID() != s.Scope.ManagementClusterAccountID() {
+		createMCOIDCProvider := func() error {
+			mcIdentityProviderURL := util.EnsureHTTPS(strings.Replace(key.CloudFrontAlias(s.Scope.BaseDomain()), s.Scope.ClusterName(), s.Scope.Installation(), 1))
+
+			s.Scope.Logger().Info("creating MC OIDC provider in WC AWS account", "identityProviderURLs", mcIdentityProviderURL)
+
+			i := &awsiam.CreateOpenIDConnectProviderInput{
+				Url:          aws.String(mcIdentityProviderURL),
+				ClientIDList: []*string{aws.String(key.STSUrl(s.Scope.Region()))},
+				Tags: []*awsiam.Tag{
+					{
+						Key:   aws.String("giantswarm.io/installation"),
+						Value: aws.String(s.Scope.Installation()),
+					},
+					{
+						Key:   aws.String("giantswarm.io/cluster"),
+						Value: aws.String(s.Scope.Installation()),
+					},
+				},
+			}
+
+			_, err = s.IAM.Client.CreateOpenIDConnectProvider(i)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					case awsiam.ErrCodeEntityAlreadyExistsException:
+						s.Scope.Logger().Info("MC OIDC provider already exists")
+						return nil
+					}
+				}
+				return microerror.Mask(err)
+			}
+			s.Scope.Logger().Info("Created MC OIDC provider in WC AWS account", "identityProviderURL", mcIdentityProviderURL)
+
+			return nil
+		}
+		err = backoff.Retry(createMCOIDCProvider, b)
+		if err != nil {
+			ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Inc()
+			s.Scope.Logger().Error(err, "failed to create MC OIDC provider")
+			return err
+		}
 	}
 
 	ctrlmetrics.Errors.WithLabelValues(s.Scope.Installation(), s.Scope.AccountID(), s.Scope.ClusterName(), s.Scope.ClusterNamespace()).Set(0)

@@ -29,6 +29,7 @@ type ClusterScopeParams struct {
 	ConfigName                 string
 	Installation               string
 	KeepCloudFrontOIDCProvider bool
+	ManagementClusterAccountID string
 	Migration                  bool
 	PreCloudfrontAlias         bool
 	Region                     string
@@ -90,7 +91,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create aws session")
 	}
-	// DEBUG
+
 	awsClientConfig := &aws.Config{Credentials: stscreds.NewCredentials(session, params.ARN)}
 
 	stsClient := sts.New(session, awsClientConfig)
@@ -103,6 +104,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 	return &ClusterScope{
 		accountID:                  params.AccountID,
+		managementClusterAccountID: params.ManagementClusterAccountID,
 		assumeRole:                 params.ARN,
 		baseDomain:                 params.BaseDomain,
 		bucketName:                 params.BucketName,
@@ -139,6 +141,7 @@ type ClusterScope struct {
 	configName                 string
 	installation               string
 	keepCloudFrontOIDCProvider bool
+	managementClusterAccountID string
 	migration                  bool
 	preCloudfrontAlias         bool
 	region                     string
@@ -158,6 +161,11 @@ func (s *ClusterScope) Logger() logr.Logger {
 // AccountID returns the account ID of the assumed role.
 func (s *ClusterScope) AccountID() string {
 	return s.accountID
+}
+
+// ManagementClusterAccountID returns the account ID used by the Management Cluster.
+func (s *ClusterScope) ManagementClusterAccountID() string {
+	return s.managementClusterAccountID
 }
 
 // ARN returns the AWS SDK assumed role.
