@@ -160,6 +160,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ConfigName:                 key.ConfigName(awsCluster.Name),
 		Installation:               r.Installation,
 		ManagementClusterAccountID: managementClusterAccountID,
+		ManagementClusterRegion:    mcAWSCluster.Spec.Region,
 		Region:                     awsCluster.Spec.Region,
 		// Change to this once we have all clusters in 25.0.0
 		// ReleaseVersion:   key.Release(cluster),

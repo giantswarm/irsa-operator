@@ -342,7 +342,11 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 	if s.Scope.AccountID() != s.Scope.ManagementClusterAccountID() {
 		createMCOIDCProvider := func() error {
 			mcIdentityProviderURL := util.EnsureHTTPS(strings.Replace(key.CloudFrontAlias(s.Scope.BaseDomain()), s.Scope.ClusterName(), s.Scope.Installation(), 1))
-
+			if key.IsChina(s.Scope.Region()) {
+				s3Endpoint := fmt.Sprintf("s3.%s.%s", s.Scope.ManagementClusterRegion(), key.AWSEndpoint(s.Scope.ManagementClusterRegion()))
+				bucketName := key.BucketName(s.Scope.ManagementClusterAccountID(), s.Scope.Installation())
+				mcIdentityProviderURL = util.EnsureHTTPS(fmt.Sprintf("%s/%s", s3Endpoint, fmt.Sprintf("%s-v3", bucketName)))
+			}
 			s.Scope.Logger().Info("creating MC OIDC provider in WC AWS account", "identityProviderURLs", mcIdentityProviderURL)
 
 			i := &awsiam.CreateOpenIDConnectProviderInput{
