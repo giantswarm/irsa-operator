@@ -373,6 +373,7 @@ func (s *Service) Reconcile(ctx context.Context, outRequeueAfter *time.Duration)
 						return nil
 					}
 				}
+				s.Scope.Logger().Error(err, "Failed to create MC OIDC provider")
 				return microerror.Mask(err)
 			}
 			s.Scope.Logger().Info("Created MC OIDC provider in WC AWS account", "identityProviderURL", mcIdentityProviderURL)
