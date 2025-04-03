@@ -30,6 +30,7 @@ type ClusterScopeParams struct {
 	Installation               string
 	KeepCloudFrontOIDCProvider bool
 	ManagementClusterAccountID string
+	ManagementClusterRegion    string
 	Migration                  bool
 	PreCloudfrontAlias         bool
 	Region                     string
@@ -105,6 +106,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	return &ClusterScope{
 		accountID:                  params.AccountID,
 		managementClusterAccountID: params.ManagementClusterAccountID,
+		managementClusterRegion:    params.ManagementClusterRegion,
 		assumeRole:                 params.ARN,
 		baseDomain:                 params.BaseDomain,
 		bucketName:                 params.BucketName,
@@ -142,6 +144,7 @@ type ClusterScope struct {
 	installation               string
 	keepCloudFrontOIDCProvider bool
 	managementClusterAccountID string
+	managementClusterRegion    string
 	migration                  bool
 	preCloudfrontAlias         bool
 	region                     string
@@ -166,6 +169,11 @@ func (s *ClusterScope) AccountID() string {
 // ManagementClusterAccountID returns the account ID used by the Management Cluster.
 func (s *ClusterScope) ManagementClusterAccountID() string {
 	return s.managementClusterAccountID
+}
+
+// ManagementClusterRegion returns the region used by the Management Cluster.
+func (s *ClusterScope) ManagementClusterRegion() string {
+	return s.managementClusterRegion
 }
 
 // ARN returns the AWS SDK assumed role.
