@@ -66,7 +66,7 @@ func (s *Service) UploadFiles(release *semver.Version, domain, bucketName string
 		var update bool
 		ho, err := s.Client.HeadObject(i0)
 		if ho.ETag != nil {
-			if strings.Replace(*ho.ETag, "\"", "", -1) != eTagCalc {
+			if strings.ReplaceAll(*ho.ETag, "\"", "") != eTagCalc {
 				s.scope.Logger().Info(fmt.Sprintf("Hashdiff of object '%s' detected, reuploading", fileName), "bucket", bucketName)
 				update = true
 			}
