@@ -33,7 +33,7 @@ func (s *Service) EnsureOIDCProviders(identityProviderURLs []string, identityPro
 	thumbprints := make([]*string, 0)
 	thumbprintsSeen := make(map[string]bool)
 	for _, identityProviderURL := range identityProviderURLs {
-		tps, err := caThumbPrints(identityProviderURL)
+		tps, err := s.caThumbPrints(identityProviderURL)
 		if err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func (s *Service) DeleteOIDCProviders() error {
 	return nil
 }
 
-func caThumbPrints(ep string) ([]string, error) {
+func (s *Service) caThumbPrints(ep string) ([]string, error) {
 	ret := make([]string, 0)
 
 	// Root CA certificate.
@@ -350,7 +350,11 @@ func caThumbPrints(ep string) ([]string, error) {
 		if err != nil {
 			return nil, microerror.Mask(errors.Wrapf(err, "failed to get %s", ep))
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				s.scope.Logger().Error(err, "failed to close response body", "ep", ep)
+			}
+		}()
 
 		var fingerprint [20]byte
 		// Get the latest Root CA from Certificate Chain

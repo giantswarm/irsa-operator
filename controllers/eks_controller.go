@@ -79,8 +79,8 @@ func (r *EKSClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	accountID := re.FindAllString(arn, 1)[0]
 
 	if accountID == "" {
-		logger.Error(err, "Unable to extract Account ID from ARN")
-		return ctrl.Result{}, microerror.Mask(fmt.Errorf("Unable to extract Account ID from ARN %s", string(arn)))
+		logger.Error(err, "unable to extract Account ID from ARN")
+		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", string(arn)))
 	}
 
 	// create the cluster scope.
