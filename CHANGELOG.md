@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Small fixes for golangci-lint v2
+- Updated dependencies to resolve CVEs:
+  - golang.org/x/crypto **v0.35.0** --> **v0.37.0**
+  - golang.org/x/net **v0.36.0** --> **v0.39.0**
+  - golang.org/x/sys **v0.30.0** --> **v0.32.0**
+  - golang.org/x/term **v0.29.0** --> **v0.31.0**
+
 ## [0.31.1] - 2025-04-03
 
 ### Fixed
