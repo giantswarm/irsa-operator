@@ -2,7 +2,7 @@
 #
 #    devctl
 #
-#    https://github.com/giantswarm/devctl/blob/4460c761238f42b86238478267338d8e2a74d901/pkg/gen/input/workflows/internal/file/fix_vulnerabilities.yaml.template
+#    https://github.com/giantswarm/devctl/blob/c1b16989bf49dfec3938304f370ac314ebe17c65/pkg/gen/input/workflows/internal/file/fix_vulnerabilities.yaml.template
 #
 name: Fix Vulnerabilities
 on:
@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Generate a token
         id: generate_token
-        uses: actions/create-github-app-token@3ff1caaa28b64c9cc276ce0a02e2ff584f3900c5 # v2.0.2
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         with:
           app-id: ${{ secrets.HERALD_APP_ID }}
           private-key: ${{ secrets.HERALD_APP_KEY }}
@@ -79,7 +79,7 @@ jobs:
           git checkout -b "${branch}"
           git pull origin "${branch}" || true
       - name: Run nancy-fixer fix
-        uses: docker://gsoci.azurecr.io/giantswarm/nancy-fixer:0.4.4
+        uses: docker://gsoci.azurecr.io/giantswarm/nancy-fixer:0.5.0
         timeout-minutes: 20
       - name: Set up git identity
         run: |
