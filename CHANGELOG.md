@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add pause annotation "giantswarm.io/pause-irsa-operator" independent from Cluster API to allow Crossplane migration.
+
 ### Fixed
 
 - Small fixes for golangci-lint v2

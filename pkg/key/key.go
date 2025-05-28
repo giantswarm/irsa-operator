@@ -20,6 +20,8 @@ const (
 	IRSAPreCloudfrontAliasAnnotation = "alpha.aws.giantswarm.io/enable-cloudfront-alias"
 	// Keep IRSA label
 	KeepIRSALabel = "giantswarm.io/keep-irsa"
+	// Pause IRSA operator
+	PauseIRSAOperatorAnnotation = "giantswarm.io/pause-irsa-operator"
 	// Whether to create/keep the `<random>.cloudfront.net` OIDC provider. Only used for vintage. Defaults
 	// to `true` for backward compatibility, and only the values `true` or `false` are allowed.
 	// If a single cluster doesn't have any IAM roles using the `<random>.cloudfront.net` OIDC provider domain,

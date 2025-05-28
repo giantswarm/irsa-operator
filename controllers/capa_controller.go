@@ -80,7 +80,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
-	if annotations.HasPaused(awsCluster) {
+	if annotations.HasPaused(awsCluster) || awsCluster.Annotations[key.PauseIRSAOperatorAnnotation] == "true" {
 		logger.Info("AWSCluster is marked as paused, skipping")
 		return ctrl.Result{}, nil
 	}
