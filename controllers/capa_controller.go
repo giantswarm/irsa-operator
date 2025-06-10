@@ -80,7 +80,7 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, microerror.Mask(client.IgnoreNotFound(err))
 	}
 
-	if annotations.HasPaused(awsCluster) || awsCluster.Annotations[key.PauseIRSAOperatorAnnotation] == "true" {
+	if annotations.HasPaused(awsCluster) {
 		logger.Info("AWSCluster is marked as paused, skipping")
 		return ctrl.Result{}, nil
 	}
@@ -88,6 +88,19 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, awsCluster.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, microerror.Mask(err)
+	}
+
+	if awsCluster.Annotations[key.PauseIRSAOperatorAnnotation] == "true" {
+		if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
+			err = r.removeAWSClusterFinalizer(ctx, logger, awsCluster)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			logger.Info("AWSCluster is marked as paused and deleted, finalizer removed")
+			return ctrl.Result{}, nil
+		}
+		logger.Info("AWSCluster is marked as paused, skipping")
+		return ctrl.Result{}, nil
 	}
 
 	// If the cluster is already deleted the configmap  will be likely gone and
