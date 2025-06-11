@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Remove CM finalizer
+
 ## [0.33.0] - 2025-06-10
 
 ### Changed
 
 - Remove finalizer when "giantswarm.io/pause-irsa-operator" annotation is present and cluster is deleted. Otherwise the finalizer is never removed. Crossplane will delete cloud resources.
+
 
 ## [0.32.0] - 2025-06-06
 

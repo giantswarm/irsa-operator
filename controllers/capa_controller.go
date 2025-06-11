@@ -90,10 +90,27 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, microerror.Mask(err)
 	}
 
+	// Fetch config map created by cluster-apps-operator
+	clusterValues := &v1.ConfigMap{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: awsCluster.Namespace, Name: fmt.Sprintf("%s-cluster-values", awsCluster.Name)}, clusterValues)
+	if err != nil {
+		return reconcile.Result{}, microerror.Mask(err)
+	}
+
 	if awsCluster.Annotations[key.PauseIRSAOperatorAnnotation] == "true" {
 		if awsCluster.DeletionTimestamp != nil || cluster.DeletionTimestamp != nil {
 			err = r.removeAWSClusterFinalizer(ctx, logger, awsCluster)
 			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			patchHelperClusterValuesConfigMap, err := patch.NewHelper(clusterValues, r.Client)
+			if err != nil {
+				return ctrl.Result{}, microerror.Mask(err)
+			}
+			controllerutil.RemoveFinalizer(clusterValues, key.FinalizerName)
+			err = patchHelperClusterValuesConfigMap.Patch(ctx, clusterValues)
+			if err != nil {
+				logger.Error(err, "failed to remove finalizer from cluster values ConfigMap")
 				return ctrl.Result{}, microerror.Mask(err)
 			}
 			logger.Info("AWSCluster is marked as paused and deleted, finalizer removed")
@@ -147,13 +164,6 @@ func (r *CAPAClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if managementClusterAccountID == "" {
 		logger.Error(err, "Unable to extract Account ID from ARN")
 		return ctrl.Result{}, microerror.Mask(fmt.Errorf("unable to extract Account ID from ARN %s", mcAWSClusterRoleIdentity.Spec.RoleArn))
-	}
-
-	// Fetch config map created by cluster-apps-operator
-	clusterValues := &v1.ConfigMap{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: awsCluster.Namespace, Name: fmt.Sprintf("%s-cluster-values", awsCluster.Name)}, clusterValues)
-	if err != nil {
-		return reconcile.Result{}, microerror.Mask(err)
 	}
 
 	baseDomain, err := getBaseDomain(clusterValues)
