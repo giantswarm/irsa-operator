@@ -17,9 +17,9 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	golang.org/x/text v0.25.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	k8s.io/api v0.33.1
-	k8s.io/apimachinery v0.33.1
-	k8s.io/client-go v0.33.1
+	k8s.io/api v0.33.2
+	k8s.io/apimachinery v0.33.2
+	k8s.io/client-go v0.33.2
 	sigs.k8s.io/cluster-api v1.9.6
 	sigs.k8s.io/cluster-api-provider-aws/v2 v2.7.1
 	sigs.k8s.io/controller-runtime v0.19.6
