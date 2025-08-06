@@ -2,7 +2,7 @@ module github.com/giantswarm/irsa-operator
 
 go 1.24.0
 
-toolchain go1.24.5
+toolchain go1.24.6
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
