@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Disable `controller-runtime` cache for `Secrets` and `ConfigMaps`.
+
 ## [0.33.2] - 2025-06-25
 
 ### Fixed
