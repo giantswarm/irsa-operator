@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2025-10-01
+
 ### Changed
 
 - Disable `controller-runtime` cache for `Secrets` and `ConfigMaps`.
@@ -540,7 +542,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-03-04
 
-[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.33.2...HEAD
+[Unreleased]: https://github.com/giantswarm/irsa-operator/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/giantswarm/irsa-operator/compare/v0.33.2...v0.34.0
 [0.33.2]: https://github.com/giantswarm/irsa-operator/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/giantswarm/irsa-operator/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/giantswarm/irsa-operator/compare/v0.32.0...v0.33.0
