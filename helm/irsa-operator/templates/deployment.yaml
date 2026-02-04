@@ -43,7 +43,7 @@ spec:
         {{- end }}
       containers:
       - name: {{ .Chart.Name }}
-        image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ default .Chart.Version .Values.image.tag }}"
+        image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ default .Chart.AppVersion .Values.image.tag }}"
         env:
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /home/.aws/credentials

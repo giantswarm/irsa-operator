@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use `.Chart.AppVersion` instead of `.Chart.Version` for container image tag.
+
 ## [0.34.0] - 2025-10-01
 
 ### Changed
